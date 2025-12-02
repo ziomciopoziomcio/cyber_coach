@@ -136,3 +136,14 @@ class IPWebcamClient:
             self._stream_thread.join(timeout=2)
         logger.info("IP Webcam stream stopped")
 
+
+    def get_current_frame(self) -> Optional[np.ndarray]:
+        """
+        Zwraca ostatni otrzymany obraz.
+
+        Returns:
+            numpy array z obrazem lub None jeśli nie ma obrazu
+        """
+        return self.current_frame
+
+
