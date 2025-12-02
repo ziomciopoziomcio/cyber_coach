@@ -1,0 +1,17 @@
+# Core dependencies
+flask==3.0.0
+flask-socketio==5.3.5
+flask-cors==4.0.0
+python-socketio==5.10.0
+eventlet==0.35.2
+
+# HTTP requests (dla IP Webcam)
+requests==2.31.0
+
+# Image processing
+opencv-python==4.9.0.80
+numpy==1.26.3
+
+# Additional utilities
+python-engineio==4.9.0
+
