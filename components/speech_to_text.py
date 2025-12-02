@@ -281,3 +281,15 @@ def start_listening(
         _worker_thread.start()
 
 
+def stop_listening() -> None:
+    """Stop background listening (if any). Emits final result via callback."""
+    global _running, _worker_thread
+    with _lock:
+        if not _running:
+            return
+        _running = False
+    # wait briefly for worker to flush
+    if _worker_thread is not None:
+        _worker_thread.join(timeout=5.0)
+
+
