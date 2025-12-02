@@ -175,3 +175,14 @@ class AudioCapture:
         self.dtype = dtype
         self.q: "queue.Queue[bytes]" = queue.Queue()
         self.stream = None
+
+    def _callback(self, indata, frames, time_info, status):
+        # indata is a numpy array shaped (frames, channels)
+        try:
+            # Ensure we copy the buffer because sounddevice reuses memory
+            b = indata.copy().tobytes()
+            self.q.put(b, block=False)
+        except queue.Full:
+            # drop frame
+            pass
+
