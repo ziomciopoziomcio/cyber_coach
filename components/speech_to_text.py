@@ -213,3 +213,71 @@ class AudioCapture:
         except queue.Empty:
             return None
 
+
+# Public API
+
+def start_listening(
+    callback: Callable[[str, bool], None],
+    backend: str = "vosk",
+    model_path: Optional[str] = None,
+    sample_rate: int = DEFAULT_SAMPLE_RATE,
+) -> None:
+    """Start background listening. callback(text, is_final)
+
+    Raises RuntimeError if required dependencies or models are missing.
+    """
+    global _capture, _worker_thread, _running, _callback, _backend
+
+    with _lock:
+        if _running:
+            raise RuntimeError("Already listening")
+        _callback = callback
+        # initialize backend
+        if backend == "vosk":
+            _backend = VoskBackend(model_path, sample_rate=sample_rate)
+        else:
+            raise RuntimeError(f"Unsupported backend: {backend}")
+
+        _capture = AudioCapture(sample_rate=sample_rate)
+        _capture.start()
+        _running = True
+
+        def worker():
+            try:
+                buffer = bytearray()
+                # recommended chunk size; sounddevice gives frames of some small block
+                while True:
+                    with _lock:
+                        running = _running
+                    if not running:
+                        break
+                    chunk = _capture.read(timeout=0.5)
+                    if chunk:
+                        # feed directly to recognizer
+                        text, is_final = _backend.feed(chunk)
+                        if text is not None and _callback:
+                            try:
+                                _callback(text, is_final)
+                            except Exception:
+                                pass
+                    else:
+                        # no audio; continue
+                        time.sleep(0.01)
+                # when stopped, flush final
+                final = _backend.finish()
+                if final and _callback:
+                    try:
+                        _callback(final, True)
+                    except Exception:
+                        pass
+            finally:
+                # cleanup
+                try:
+                    _capture.stop()
+                except Exception:
+                    pass
+
+        _worker_thread = threading.Thread(target=worker, daemon=True)
+        _worker_thread.start()
+
+
