@@ -136,6 +136,14 @@ class IPWebcamClient:
             self._stream_thread.join(timeout=2)
         logger.info("IP Webcam stream stopped")
 
+    def set_frame_callback(self, callback: Callable):
+        """
+        Ustawia funkcję callback wywoływaną po otrzymaniu nowego obrazu.
+
+        Args:
+            callback: Funkcja przyjmująca jeden argument (numpy array z obrazem)
+        """
+        self.frame_callback = callback
 
     def get_current_frame(self) -> Optional[np.ndarray]:
         """
