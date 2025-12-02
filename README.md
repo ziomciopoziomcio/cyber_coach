@@ -39,7 +39,7 @@ Cyber Trainer processes synchronized video streams from two cameras, extracts bo
    - Two simultaneous video streams captured over the local network.
 
 2. **Pose Estimation**  
-   - MediaPipe / YOLOv11 models for keypoint extraction
+   - MediaPipe / YOLOv11 models for keypoint extraction.
 
 3. **Movement Analysis Module**  
    - Joint angle calculation  
