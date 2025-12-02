@@ -40,3 +40,17 @@ class IPWebcamClient:
         self.is_running = False
         self._stream_thread = None
 
+    def test_connection(self) -> bool:
+        """
+        Testuje połączenie z IP Webcam.
+
+        Returns:
+            True jeśli połączenie działa, False w przeciwnym razie
+        """
+        try:
+            response = requests.get(self.shot_url, timeout=5)
+            return response.status_code == 200
+        except Exception as e:
+            logger.error(f"Connection test failed: {e}")
+            return False
+
