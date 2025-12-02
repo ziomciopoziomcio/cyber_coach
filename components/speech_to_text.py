@@ -39,3 +39,13 @@ class _MissingDependencyError(RuntimeError):
     pass
 
 
+class VoskBackend:
+    """Backend wrapper around vosk.KaldiRecognizer.
+
+    feed(pcm_bytes) -> (text, is_final)
+    finish() -> final_text
+    """
+
+class AudioCapture:
+    """Capture audio from default microphone using sounddevice and push to a queue as raw PCM16 bytes."""
+
