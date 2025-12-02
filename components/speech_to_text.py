@@ -46,6 +46,76 @@ class VoskBackend:
     finish() -> final_text
     """
 
+    def __init__(self, model_path: Optional[str], sample_rate: int = DEFAULT_SAMPLE_RATE):
+        try:
+            from vosk import Model, KaldiRecognizer
+        except Exception as e:  # pragma: no cover - dependency check
+            raise _MissingDependencyError(
+                "VOSK is not installed. Install with: pip install vosk"
+            ) from e
+
+        if model_path is None:
+            # try env var
+            model_path = os.environ.get(DEFAULT_MODEL_ENV)
+        if model_path is None:
+            # try default models dir
+            # choose the first subdir in components/models if exists
+            if os.path.isdir(DEFAULT_MODEL_DIR):
+                try:
+                    first = next(os.scandir(DEFAULT_MODEL_DIR))
+                    model_path = first.path
+                except StopIteration:
+                    model_path = None
+
+        if not model_path or not os.path.isdir(model_path):
+            raise RuntimeError(
+                f"VOSK model not found. Set environment {DEFAULT_MODEL_ENV} or place a model under {DEFAULT_MODEL_DIR}."
+            )
+
+        self.sample_rate = sample_rate
+        # Some native VOSK builds (C++ layer) on Windows cannot handle non-ASCII
+        # characters in filesystem paths. Detect this early and give an actionable
+        # message so the user can move the model to an ASCII-only path.
+        try:
+            if any(ord(ch) > 127 for ch in model_path):
+                raise RuntimeError(
+                    "VOSK model path contains non-ASCII characters (e.g. accented letters).\n"
+                    "The native VOSK backend on Windows often fails to open paths with Unicode characters.\n"
+                    "Quick fix: move the model to a path with only ASCII characters, for example: C:\\models\\vosk-model-small-en-us-0.15\n"
+                    "Then either set the environment variable VOSK_MODEL_PATH to that path or pass it as model_path when constructing the backend.\n"
+                )
+        except TypeError:
+            # model_path may be None or not a str; ignore here (will fail later)
+            pass
+
+        # Try to create the VOSK model; if it fails provide diagnostics and actionable tips
+        try:
+            self.model = Model(model_path)
+        except Exception as e:
+            # Collect some quick diagnostics about the path to help the user
+            try:
+                entries = os.listdir(model_path) if os.path.isdir(model_path) else []
+            except Exception:
+                entries = []
+            diag = (
+                f"Failed to create VOSK model from path: {model_path}\n"
+                f"Directory exists: {os.path.isdir(model_path)}\n"
+                f"Top-level entries (up to 10): {entries[:10]}\n\n"
+                "Common causes:\n"
+                " - The model archive wasn't unzipped (pass the unzipped folder, not the .zip).\n"
+                " - The downloaded model is corrupted or incomplete. Try re-downloading.\n"
+                " - VOSK / wheel mismatch for your platform (use a matching vosk package).\n\n"
+                "Quick PowerShell checks (run in project root):\n"
+                f"  Get-ChildItem -Path '{model_path}' -Force\n"
+                "Quick download (small English model):\n"
+                "  mkdir -Force .\\components\\models; Invoke-WebRequest \"https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip\" -OutFile .\\components\\models\\model.zip; Expand-Archive -Path .\\components\\models\\model.zip -DestinationPath .\\components\\models\\; Remove-Item .\\components\\models\\model.zip\n\n"
+                "If this doesn't help, re-download a matching model from: https://alphacephei.com/vosk/models/"
+            )
+            raise RuntimeError(diag) from e
+
+        self.rec = KaldiRecognizer(self.model, float(sample_rate))
+        # optional: allow word-level timestamps by passing JSON options
+
 class AudioCapture:
     """Capture audio from default microphone using sounddevice and push to a queue as raw PCM16 bytes."""
 
