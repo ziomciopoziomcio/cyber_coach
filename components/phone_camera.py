@@ -155,3 +155,46 @@ class IPWebcamClient:
         return self.current_frame
 
 
+# Przykład użycia
+if __name__ == '__main__':
+    import sys
+
+    def process_frame(frame):
+        """Przykładowa funkcja przetwarzania obrazu."""
+        print(f"Received frame with shape: {frame.shape}")
+        # Tutaj możesz dodać przetwarzanie obrazu
+        # np. detekcja obiektów, analiza pozy, itp.
+
+        # Przykład: wyświetlanie obrazu
+        cv2.imshow('Phone Camera', frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            sys.exit(0)
+
+    ip = input("Podaj IP telefonu (np. 192.168.1.100): ").strip() or "192.168.1.100"
+    port = input("Podaj port IP Webcam (domyślnie 8080): ").strip() or "8080"
+
+    url = f"http://{ip}:{port}"
+    client = IPWebcamClient(url)
+
+    print(f"\nTestowanie połączenia z {url}...")
+    if client.test_connection():
+        print("✓ Połączenie OK!")
+        client.set_frame_callback(process_frame)
+        client.start_stream()
+
+        print("\nStreamowanie... Naciśnij 'q' w oknie obrazu aby zakończyć")
+        try:
+            while client.is_running:
+                time.sleep(0.1)
+        except KeyboardInterrupt:
+            print("\nZatrzymywanie...")
+        finally:
+            client.stop_stream()
+            cv2.destroyAllWindows()
+    else:
+        print("✗ Nie można połączyć z IP Webcam")
+        print(f"\nSprawdź czy:")
+        print(f"1. IP Webcam działa na telefonie")
+        print(f"2. Używasz poprawnego adresu: {url}")
+        print(f"3. Telefon i komputer są w tej samej sieci")
+
