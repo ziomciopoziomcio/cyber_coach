@@ -35,3 +35,7 @@ DEFAULT_MODEL_ENV = "VOSK_MODEL_PATH"
 DEFAULT_MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
 
 
+class _MissingDependencyError(RuntimeError):
+    pass
+
+
