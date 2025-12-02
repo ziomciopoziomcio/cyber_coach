@@ -1,3 +1,10 @@
+"""
+Phone Camera Module - Obsługa przekazywania obrazu z kamery telefonu po sieci
+
+Ten moduł obsługuje odbieranie obrazów z kamery telefonu przez sieć
+używając Flask-SocketIO dla komunikacji w czasie rzeczywistym.
+Wspiera również IP Webcam (MJPEG stream).
+"""
 
 import cv2
 import numpy as np
