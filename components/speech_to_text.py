@@ -116,6 +116,38 @@ class VoskBackend:
         self.rec = KaldiRecognizer(self.model, float(sample_rate))
         # optional: allow word-level timestamps by passing JSON options
 
+    def feed(self, pcm_bytes: bytes) -> Tuple[Optional[str], bool]:
+        """Feed PCM16LE bytes. Returns (text, is_final).
+        If partial result available, returns (text, False).
+        If final result, returns (text, True).
+        If no new text, returns (None, False).
+        """
+        # KaldiRecognizer.AcceptWaveform expects bytes
+        accepted = self.rec.AcceptWaveform(pcm_bytes)
+        if accepted:
+            res = self.rec.Result()
+            # Result is JSON like {"text":"..."}
+            try:
+                import json
+
+                j = json.loads(res)
+                text = j.get("text", "")
+            except Exception:
+                text = res
+            return (text.strip(), True)
+        else:
+            try:
+                partial = self.rec.PartialResult()
+                import json
+
+                j = json.loads(partial)
+                p = j.get("partial", "")
+            except Exception:
+                p = ""
+            if p:
+                return (p.strip(), False)
+        return (None, False)
+
 class AudioCapture:
     """Capture audio from default microphone using sounddevice and push to a queue as raw PCM16 bytes."""
 
