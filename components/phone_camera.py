@@ -54,3 +54,20 @@ class IPWebcamClient:
             logger.error(f"Connection test failed: {e}")
             return False
 
+    def get_single_frame(self) -> Optional[np.ndarray]:
+        """
+        Pobiera pojedynczą klatkę z IP Webcam.
+
+        Returns:
+            numpy array z obrazem lub None w przypadku błędu
+        """
+        try:
+            response = requests.get(self.shot_url, timeout=5)
+            if response.status_code == 200:
+                img_array = np.frombuffer(response.content, np.uint8)
+                frame = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                return frame
+        except Exception as e:
+            logger.error(f"Error getting frame: {e}")
+        return None
+
