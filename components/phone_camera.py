@@ -11,3 +11,6 @@ import logging
 import requests
 import time
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
