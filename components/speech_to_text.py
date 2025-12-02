@@ -148,6 +148,17 @@ class VoskBackend:
                 return (p.strip(), False)
         return (None, False)
 
+    def finish(self) -> Optional[str]:
+        try:
+            res = self.rec.FinalResult()
+            import json
+
+            j = json.loads(res)
+            return j.get("text", "").strip()
+        except Exception:
+            return None
+
+
 class AudioCapture:
     """Capture audio from default microphone using sounddevice and push to a queue as raw PCM16 bytes."""
 
