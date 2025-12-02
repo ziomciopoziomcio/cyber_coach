@@ -22,3 +22,16 @@ import queue
 import time
 from typing import Callable, Optional, Tuple
 
+# Module-level state for background listening
+_capture = None
+_worker_thread: Optional[threading.Thread] = None
+_running = False
+_callback: Optional[Callable[[str, bool], None]] = None
+_backend = None
+_lock = threading.Lock()
+
+DEFAULT_SAMPLE_RATE = 16000
+DEFAULT_MODEL_ENV = "VOSK_MODEL_PATH"
+DEFAULT_MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
+
+
