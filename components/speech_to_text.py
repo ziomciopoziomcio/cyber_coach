@@ -162,3 +162,16 @@ class VoskBackend:
 class AudioCapture:
     """Capture audio from default microphone using sounddevice and push to a queue as raw PCM16 bytes."""
 
+    def __init__(self, sample_rate: int = DEFAULT_SAMPLE_RATE, dtype: str = "int16"):
+        try:
+            import sounddevice as sd
+        except Exception as e:  # pragma: no cover - dependency check
+            raise _MissingDependencyError(
+                "sounddevice is not installed. Install with: pip install sounddevice"
+            ) from e
+
+        self.sd = sd
+        self.sample_rate = sample_rate
+        self.dtype = dtype
+        self.q: "queue.Queue[bytes]" = queue.Queue()
+        self.stream = None
