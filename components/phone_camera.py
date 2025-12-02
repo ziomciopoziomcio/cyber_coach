@@ -117,3 +117,22 @@ class IPWebcamClient:
             self.is_running = False
             logger.info("Stream stopped")
 
+    def start_stream(self):
+        """Rozpoczyna odbieranie strumienia w osobnym wątku."""
+        if self.is_running:
+            logger.warning("Stream already running")
+            return
+
+        self.is_running = True
+        self._stream_thread = threading.Thread(target=self._stream_loop)
+        self._stream_thread.daemon = True
+        self._stream_thread.start()
+        logger.info("IP Webcam stream started")
+
+    def stop_stream(self):
+        """Zatrzymuje odbieranie strumienia."""
+        self.is_running = False
+        if self._stream_thread:
+            self._stream_thread.join(timeout=2)
+        logger.info("IP Webcam stream stopped")
+
