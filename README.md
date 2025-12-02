@@ -19,6 +19,10 @@ Cyber Trainer processes synchronized video streams from two cameras, extracts bo
 
 ### Example Use Cases
 - Weightlifting
+- Rehabilitation exercises (e.g., post-injury physical therapy)
+- Bodyweight training (e.g., push-ups, squats, lunges)
+- Sports-specific movements (e.g., tennis serve, golf swing)
+- Yoga and flexibility routines
 
 ---
 
