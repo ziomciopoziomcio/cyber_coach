@@ -342,3 +342,6 @@ def transcribe_once(
         return text
     return ""
 
+
+__all__ = ["start_listening", "stop_listening", "transcribe_once"]
+
