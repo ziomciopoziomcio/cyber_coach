@@ -71,3 +71,49 @@ class IPWebcamClient:
             logger.error(f"Error getting frame: {e}")
         return None
 
+    def _stream_loop(self):
+        """Główna pętla odbierająca strumień MJPEG."""
+        logger.info(f"Starting IP Webcam stream from {self.video_url}")
+
+        try:
+            response = requests.get(self.video_url, stream=True, timeout=10)
+
+            if response.status_code != 200:
+                logger.error(f"Failed to connect: HTTP {response.status_code}")
+                self.is_running = False
+                return
+
+            # Bufor do odczytu MJPEG
+            bytes_data = bytes()
+
+            for chunk in response.iter_content(chunk_size=1024):
+                if not self.is_running:
+                    break
+
+                bytes_data += chunk
+
+                # MJPEG format: każda klatka zaczyna się od FFD8 i kończy FFD9
+                a = bytes_data.find(b'\xff\xd8')  # Start JPEG
+                b = bytes_data.find(b'\xff\xd9')  # End JPEG
+
+                if a != -1 and b != -1:
+                    jpg = bytes_data[a:b+2]
+                    bytes_data = bytes_data[b+2:]
+
+                    # Dekoduj obraz
+                    frame = cv2.imdecode(
+                        np.frombuffer(jpg, dtype=np.uint8),
+                        cv2.IMREAD_COLOR
+                    )
+
+                    if frame is not None:
+                        self.current_frame = frame
+                        if self.frame_callback:
+                            self.frame_callback(frame)
+
+        except Exception as e:
+            logger.error(f"Stream error: {e}")
+        finally:
+            self.is_running = False
+            logger.info("Stream stopped")
+
