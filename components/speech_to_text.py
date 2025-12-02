@@ -14,3 +14,11 @@ API:
 This module defaults to VOSK (offline). If VOSK or sounddevice are not installed or model not found,
 functions will raise informative RuntimeError explaining how to install or configure dependencies.
 """
+from __future__ import annotations
+
+import os
+import threading
+import queue
+import time
+from typing import Callable, Optional, Tuple
+
