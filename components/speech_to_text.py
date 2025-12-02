@@ -293,3 +293,52 @@ def stop_listening() -> None:
         _worker_thread.join(timeout=5.0)
 
 
+def transcribe_once(
+    duration: float = 5.0,
+    backend: str = "vosk",
+    model_path: Optional[str] = None,
+    sample_rate: int = DEFAULT_SAMPLE_RATE,
+) -> str:
+    """Blocking one-shot transcription using the selected backend.
+
+    Records `duration` seconds from default microphone and returns the final transcript.
+    """
+    # Use sounddevice's blocking record for simplicity
+    try:
+        import sounddevice as sd
+        import numpy as np
+    except Exception as e:  # pragma: no cover - dependency check
+        raise _MissingDependencyError(
+            "sounddevice (and numpy) are required for transcribe_once. Install with: pip install sounddevice numpy"
+        ) from e
+
+    if backend != "vosk":
+        raise RuntimeError(f"Unsupported backend: {backend}")
+
+    if model_path is None:
+        model_path = os.environ.get(DEFAULT_MODEL_ENV)
+
+    backend_obj = VoskBackend(model_path, sample_rate=sample_rate)
+
+    frames = int(duration * sample_rate)
+    try:
+        rec = sd.rec(frames=frames, samplerate=sample_rate, channels=1, dtype="int16")
+        sd.wait()
+    except Exception as e:
+        raise RuntimeError(f"Error recording audio: {e}") from e
+
+    # rec is numpy array shape (frames, 1)
+    if hasattr(rec, "tobytes"):
+        pcm = rec.tobytes()
+    else:
+        pcm = bytes(rec)
+
+    # VOSK recognizes in chunks; feed entire buffer
+    text, is_final = backend_obj.feed(pcm)
+    final = backend_obj.finish()
+    if final:
+        return final
+    if text:
+        return text
+    return ""
+
