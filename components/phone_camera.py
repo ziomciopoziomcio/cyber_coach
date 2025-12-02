@@ -15,6 +15,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class IPWebcamClient:
+    """
+    Klient do odbierania strumienia z aplikacji IP Webcam.
+
+    IP Webcam udostępnia kilka endpointów:
+    - http://<phone-ip>:8080/video - MJPEG stream
+    - http://<phone-ip>:8080/shot.jpg - pojedyncze zdjęcie
+    - http://<phone-ip>:8080/videofeed - alternatywny feed
+    """
 
     def __init__(self, ip_webcam_url: str = "http://192.168.1.100:8080"):
         """
