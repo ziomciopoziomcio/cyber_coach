@@ -186,3 +186,30 @@ class AudioCapture:
             # drop frame
             pass
 
+    def start(self):
+        if self.stream is not None:
+            return
+        self.stream = self.sd.InputStream(
+            samplerate=self.sample_rate,
+            channels=1,
+            dtype=self.dtype,
+            callback=self._callback,
+        )
+        self.stream.start()
+
+    def stop(self):
+        if self.stream is None:
+            return
+        try:
+            self.stream.stop()
+            self.stream.close()
+        except Exception:
+            pass
+        self.stream = None
+
+    def read(self, timeout: float = 1.0) -> Optional[bytes]:
+        try:
+            return self.q.get(timeout=timeout)
+        except queue.Empty:
+            return None
+
