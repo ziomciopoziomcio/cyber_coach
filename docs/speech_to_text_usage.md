@@ -9,19 +9,22 @@ The `components/speech_to_text.py` module provides offline speech recognition us
 pip install vosk sounddevice numpy
 ```
 
-2. **Set up VOSK model** (one-time setup):
+2. **Set up VOSK models:**
 
-The model is already installed at `C:\models\vosk-model-small-en-us-0.15`
+Models should be placed in `components/models/` directory:
+- `components/models/vosk-model-small-pl-0.22/` - Polish model (default)
+- `components/models/vosk-model-small-en-us-0.15/` - English model
 
-**For each new terminal session**, set the environment variable:
-```powershell
-$env:VOSK_MODEL_PATH = "C:\models\vosk-model-small-en-us-0.15"
-```
+**Note:** On Windows, VOSK cannot handle paths with non-ASCII characters (like Polish letters "Ł", "ó", etc.). 
+If you see path-related errors, move models to a simple ASCII path like `C:\models\` and use the `model_path` parameter.
 
-**Or set it permanently** (already done on your system):
-```powershell
-setx VOSK_MODEL_PATH "C:\models\vosk-model-small-en-us-0.15"
-```
+## Language Support
+
+The library supports multiple languages via the `language` parameter:
+- `language='pl'` - Polish (default)
+- `language='en'` - English
+
+You can also specify a custom model path using `model_path` parameter.
 
 ## Usage
 
@@ -31,7 +34,27 @@ setx VOSK_MODEL_PATH "C:\models\vosk-model-small-en-us-0.15"
 from components.speech_to_text import start_listening, stop_listening, transcribe_once
 ```
 
-### Example 1: Continuous Background Listening
+### Example 1: Quick Transcription (Polish - default)
+
+```python
+from components.speech_to_text import transcribe_once
+
+print("Powiedz coś po polsku...")
+result = transcribe_once(duration=5.0)
+print(f"Powiedziałeś: {result}")
+```
+
+### Example 2: Quick Transcription (English)
+
+```python
+from components.speech_to_text import transcribe_once
+
+print("Say something in English...")
+result = transcribe_once(duration=5.0, language='en')
+print(f"You said: {result}")
+```
+
+### Example 3: Continuous Background Listening (Polish)
 
 ```python
 from components.speech_to_text import start_listening, stop_listening
@@ -39,9 +62,9 @@ import time
 
 def on_transcription(text: str, is_final: bool):
     if is_final:
-        print(f"Final: {text}")
+        print(f"Ostateczne: {text}")
     else:
-        print(f"Partial: {text}")
+        print(f"Częściowe: {text}")
 
 # Start listening
 start_listening(callback=on_transcription)
