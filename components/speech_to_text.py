@@ -327,6 +327,16 @@ def transcribe_once(
 ) -> str:
     """Blocking one-shot transcription using the selected backend.
 
+    Args:
+        duration: Recording duration in seconds (default: 5.0)
+        backend: Recognition backend (default: 'vosk')
+        model_path: Optional explicit path to model (overrides language selection)
+        language: Language code ('pl' or 'en', default: 'pl')
+        sample_rate: Audio sample rate in Hz (default: 16000)
+
+    Returns:
+        Transcribed text as string
+
     Records `duration` seconds from default microphone and returns the final transcript.
     """
     # Use sounddevice's blocking record for simplicity
