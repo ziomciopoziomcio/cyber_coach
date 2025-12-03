@@ -1,62 +1,38 @@
+from posedetector import PoseDetector
 import cv2
-import mediapipe as mp
+import time
+
+def main():
+
+    source = 0 # source config
+    window_name = 'Cyber Coach - Camera Test Preview'
+
+    cap = cv2.VideoCapture(source)
+    detector = PoseDetector(complexity=2)
+    p_time = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Camera error or end of video.")
+            break
+
+        frame = detector.find_pose(frame, draw=True)
+
+        # FPS Calculation
+        c_time = time.time()
+        fps = 1 / (c_time - p_time)
+        p_time = c_time
+
+        cv2.putText(frame, f'FPS: {int(fps)}', (10, 70), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
+        cv2.imshow(window_name, frame)
+
+        if cv2.waitKey(1) == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 
-# mediapipe pose init
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(
-    static_image_mode=False,
-    model_complexity=2,
-    smooth_landmarks=True,
-    enable_segmentation=False,
-    smooth_segmentation=True,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
-)
-
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
-connection_style = mp_drawing.DrawingSpec(color=(0,255,0), thickness=2)
-
-
-# source config
-s = 0 # laptop camera (temp)
-wn = 'Camera Test Preview' # same as above
-cap = cv2.VideoCapture(s)
-
-
-# main loop
-while True:
-    ret, frame = cap.read()
-
-    if not ret:
-        print("Camera error")
-        break
-
-
-    result = pose.process(frame)
-    landmarks = result.pose_landmarks
-
-    # if landmarks:
-    #     for id, lm in enumerate(landmarks.landmark):
-    #         print(id, lm.x, lm.y, lm.z, lm.visibility)
-
-    # drawing landmarks
-    if landmarks:
-
-        mp_drawing.draw_landmarks(
-            frame,
-            landmarks,
-            mp_pose.POSE_CONNECTIONS,
-            landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style(),
-            connection_drawing_spec=connection_style
-        )
-
-
-    cv2.imshow(wn, frame)
-
-    if cv2.waitKey(1) == ord('q'):
-        break
-
-cap.release()
-cv2.destroyWindow(wn)
+if __name__ == "__main__":
+    main()
