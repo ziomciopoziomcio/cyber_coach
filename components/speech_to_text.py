@@ -322,6 +322,7 @@ def transcribe_once(
     duration: float = 5.0,
     backend: str = "vosk",
     model_path: Optional[str] = None,
+    language: str = DEFAULT_LANGUAGE,
     sample_rate: int = DEFAULT_SAMPLE_RATE,
 ) -> str:
     """Blocking one-shot transcription using the selected backend.
@@ -340,10 +341,7 @@ def transcribe_once(
     if backend != "vosk":
         raise RuntimeError(f"Unsupported backend: {backend}")
 
-    if model_path is None:
-        model_path = os.environ.get(DEFAULT_MODEL_ENV)
-
-    backend_obj = VoskBackend(model_path, sample_rate=sample_rate)
+    backend_obj = VoskBackend(model_path=model_path, language=language, sample_rate=sample_rate)
 
     frames = int(duration * sample_rate)
     try:
