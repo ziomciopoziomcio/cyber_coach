@@ -242,6 +242,13 @@ def start_listening(
 ) -> None:
     """Start background listening. callback(text, is_final)
 
+    Args:
+        callback: Function to call with (text, is_final) results
+        backend: Recognition backend (default: 'vosk')
+        model_path: Optional explicit path to model (overrides language selection)
+        language: Language code ('pl' or 'en', default: 'pl')
+        sample_rate: Audio sample rate in Hz (default: 16000)
+
     Raises RuntimeError if required dependencies or models are missing.
     """
     global _capture, _worker_thread, _running, _callback, _backend
