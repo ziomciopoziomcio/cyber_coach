@@ -34,6 +34,13 @@ DEFAULT_SAMPLE_RATE = 16000
 DEFAULT_MODEL_ENV = "VOSK_MODEL_PATH"
 DEFAULT_MODEL_DIR = os.path.join(os.path.dirname(__file__), "models")
 
+# Language to model directory mapping
+LANGUAGE_MODELS = {
+    "pl": "vosk-model-small-pl-0.22",
+    "en": "vosk-model-small-en-us-0.15",
+}
+DEFAULT_LANGUAGE = "pl"
+
 
 class _MissingDependencyError(RuntimeError):
     pass
