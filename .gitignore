@@ -206,3 +206,5 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 /.idea
+/components/models/vosk-model-small-en-us-0.15
+/components/models/vosk-model-small-pl-0.22

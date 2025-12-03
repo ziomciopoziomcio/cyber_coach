@@ -15,3 +15,6 @@ numpy==1.26.3
 # Additional utilities
 python-engineio==4.9.0
 
+# Audio processing
+vosk==0.3.45
+sounddevice==0.5.3
