@@ -53,7 +53,12 @@ class VoskBackend:
     finish() -> final_text
     """
 
-    def __init__(self, model_path: Optional[str], sample_rate: int = DEFAULT_SAMPLE_RATE):
+    def __init__(
+        self,
+        model_path: Optional[str] = None,
+        language: str = DEFAULT_LANGUAGE,
+        sample_rate: int = DEFAULT_SAMPLE_RATE
+    ):
         try:
             from vosk import Model, KaldiRecognizer
         except Exception as e:  # pragma: no cover - dependency check
