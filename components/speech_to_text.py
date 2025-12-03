@@ -237,6 +237,7 @@ def start_listening(
     callback: Callable[[str, bool], None],
     backend: str = "vosk",
     model_path: Optional[str] = None,
+    language: str = DEFAULT_LANGUAGE,
     sample_rate: int = DEFAULT_SAMPLE_RATE,
 ) -> None:
     """Start background listening. callback(text, is_final)
