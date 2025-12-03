@@ -30,7 +30,7 @@ while True:
     ret, frame = cap.read()
 
     if not ret:
-        print("Camera error")
+        print("Failed to read frame from camera. Check camera connection or device index.")
         break
 
 
