@@ -70,8 +70,13 @@ class VoskBackend:
             # try env var
             model_path = os.environ.get(DEFAULT_MODEL_ENV)
         if model_path is None:
-            # try default models dir
-            # choose the first subdir in components/models if exists
+            # try to find model based on language
+            if language in LANGUAGE_MODELS:
+                candidate = os.path.join(DEFAULT_MODEL_DIR, LANGUAGE_MODELS[language])
+                if os.path.isdir(candidate):
+                    model_path = candidate
+        if model_path is None:
+            # fallback: choose the first subdir in components/models if exists
             if os.path.isdir(DEFAULT_MODEL_DIR):
                 try:
                     first = next(os.scandir(DEFAULT_MODEL_DIR))
