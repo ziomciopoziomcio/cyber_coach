@@ -259,7 +259,7 @@ def start_listening(
         _callback = callback
         # initialize backend
         if backend == "vosk":
-            _backend = VoskBackend(model_path, sample_rate=sample_rate)
+            _backend = VoskBackend(model_path=model_path, language=language, sample_rate=sample_rate)
         else:
             raise RuntimeError(f"Unsupported backend: {backend}")
 
