@@ -83,7 +83,7 @@ Cyber Trainer processes synchronized video streams from two cameras, extracts bo
 
 - **Python**  
 - **OpenCV** – video capture and preprocessing  
-- **MediaPipe / YOLOv11 / Roboflow** – pose detection  
+- **MediaPipe** – pose detection  
 - **SpeechRecognition** – voice command processing  
 - **Pygame** – audio feedback and UI  
 - **Database system (not chosen yet)** – session and metric storage  
