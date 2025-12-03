@@ -37,8 +37,6 @@ while True:
     result = pose.process(frame)
     landmarks = result.pose_landmarks
 
-    # mediapipe returns a list of landmarks with x, y, z, visibility
-    # https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker?hl=pl
     # if landmarks:
     #     for id, lm in enumerate(landmarks.landmark):
     #         print(id, lm.x, lm.y, lm.z, lm.visibility)
