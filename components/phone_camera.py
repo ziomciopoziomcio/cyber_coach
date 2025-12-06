@@ -290,7 +290,10 @@ class IPWebcamClient:
 
 # Przykład użycia
 if __name__ == '__main__':
-    import sys
+    from queue import Queue, Empty
+
+    # używamy kolejki aby przenieść wyświetlanie obrazu do głównego wątku
+    frame_q: Queue = Queue(maxsize=2)
 
     def process_frame(frame):
         """Przykładowa funkcja przetwarzania obrazu."""
