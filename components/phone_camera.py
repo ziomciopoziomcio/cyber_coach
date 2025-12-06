@@ -27,12 +27,17 @@ class IPWebcamClient:
     - http://<phone-ip>:8080/videofeed - alternatywny feed
     """
 
-    def __init__(self, ip_webcam_url: str = "http://192.168.1.100:8080"):
+    def __init__(self, ip_webcam_url: str = "http://192.168.1.100:8080", *, backoff_base: float = 0.5, max_backoff: float = 5.0, max_consecutive_errors: int = 10, max_buffer_size_bytes: int = 10 * 1024 * 1024, log_decode_exceptions: bool = False):
         """
         Inicjalizacja klienta IP Webcam.
 
         Args:
             ip_webcam_url: URL do IP Webcam (np. http://192.168.1.100:8080)
+            backoff_base: podstawowy czas backoffu przy reconnectach (exponential backoff)
+            max_backoff: maksymalny czas w sekundach między próbami reconnectu
+            max_consecutive_errors: po ilu kolejnych błędach przerywamy próbę łączenia
+            max_buffer_size_bytes: maksymalny rozmiar wewnętrznego bufora MJPEG; po przekroczeniu czyścimy
+            log_decode_exceptions: jeśli True, logujemy szczegóły wyjątków dekodowania (może być głośne)
         """
         self.base_url = ip_webcam_url.rstrip('/')
         self.video_url = f"{self.base_url}/video"
