@@ -6,16 +6,18 @@ używając Flask-SocketIO dla komunikacji w czasie rzeczywistym.
 Wspiera również IP Webcam (MJPEG stream).
 """
 
+import logging
+import threading
+import time
+from typing import Optional, Callable
+
 import cv2
 import numpy as np
-import threading
-from typing import Optional, Callable
-import logging
 import requests
-import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class IPWebcamClient:
     """
@@ -27,7 +29,10 @@ class IPWebcamClient:
     - http://<phone-ip>:8080/videofeed - alternatywny feed
     """
 
-    def __init__(self, ip_webcam_url: str = "http://192.168.1.100:8080", *, backoff_base: float = 0.5, max_backoff: float = 5.0, max_consecutive_errors: int = 10, max_buffer_size_bytes: int = 10 * 1024 * 1024, log_decode_exceptions: bool = False):
+    def __init__(self, ip_webcam_url: str = "http://192.168.1.100:8080", *,
+                 backoff_base: float = 0.5, max_backoff: float = 5.0,
+                 max_consecutive_errors: int = 10, max_buffer_size_bytes: int = 10 * 1024 * 1024,
+                 log_decode_exceptions: bool = False):
         """
         Inicjalizacja klienta IP Webcam.
 
@@ -111,7 +116,8 @@ class IPWebcamClient:
                 if response.status_code != 200:
                     logger.error(f"Failed to connect: HTTP {response.status_code}")
                     consecutive_errors += 1
-                    sleep_time = min(self.backoff_base * (2 ** consecutive_errors), self.max_backoff)
+                    sleep_time = min(self.backoff_base * (2 ** consecutive_errors),
+                                     self.max_backoff)
                     time.sleep(sleep_time)
                     continue
 
@@ -154,12 +160,13 @@ class IPWebcamClient:
                             # Brak kompletnej ramki, usuń śmieci przed startem
                             if a > 0:
                                 bytes_data = bytes_data[a:]
-                            elif a == -1 and len(bytes_data) > 50000:  # Jeśli brak początku i dużo danych, wyczyść
+                            elif a == -1 and len(
+                                    bytes_data) > 50000:  # Jeśli brak początku i dużo danych, wyczyść
                                 bytes_data = bytes()
                             break
 
-                        jpg = bytes_data[a:b+2]
-                        bytes_data = bytes_data[b+2:]
+                        jpg = bytes_data[a:b + 2]
+                        bytes_data = bytes_data[b + 2:]
 
                         # Dekoduj obraz - imdecode może zwrócić None dla uszkodzonych danych
                         try:
@@ -182,7 +189,8 @@ class IPWebcamClient:
                                 continue
 
                             if frame is None:
-                                logger.debug("cv2.imdecode returned None (corrupted JPEG?), skipping frame")
+                                logger.debug(
+                                    "cv2.imdecode returned None (corrupted JPEG?), skipping frame")
                                 self.frames_dropped += 1
                                 continue
 
@@ -192,11 +200,13 @@ class IPWebcamClient:
                                 self.frames_received += 1
 
                             current_time = time.time()
-                            fps = 1.0 / (current_time - last_frame_time) if current_time > last_frame_time else 0
+                            fps = 1.0 / (
+                                        current_time - last_frame_time) if current_time > last_frame_time else 0
                             last_frame_time = current_time
 
                             if self.frames_received % 100 == 0:
-                                logger.info(f"Frames: {self.frames_received}, Dropped: {self.frames_dropped}, FPS: {fps:.1f}")
+                                logger.info(
+                                    f"Frames: {self.frames_received}, Dropped: {self.frames_dropped}, FPS: {fps:.1f}")
 
                             if self.frame_callback:
                                 try:
@@ -295,6 +305,7 @@ if __name__ == '__main__':
     # używamy kolejki aby przenieść wyświetlanie obrazu do głównego wątku
     frame_q: Queue = Queue(maxsize=2)
 
+
     def process_frame(frame):
         """Callback wywoływany z wątku odbioru streamu.
 
@@ -312,6 +323,7 @@ if __name__ == '__main__':
             frame_q.put_nowait(frame)
         except Exception as e:
             logger.debug(f"Failed to enqueue frame: {e}")
+
 
     ip = input("Podaj IP telefonu (np. 192.168.1.100): ").strip() or "192.168.1.100"
     port = input("Podaj port IP Webcam (domyślnie 8080): ").strip() or "8080"
