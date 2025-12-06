@@ -47,6 +47,18 @@ class IPWebcamClient:
         self.frame_callback: Optional[Callable] = None
         self.is_running = False
         self._stream_thread = None
+        self._frame_lock = threading.Lock()
+
+        # reconnect / robustness settings
+        self.backoff_base = backoff_base
+        self.max_backoff = max_backoff
+        self.max_consecutive_errors = max_consecutive_errors
+        self.max_buffer_size_bytes = max_buffer_size_bytes
+        self.log_decode_exceptions = log_decode_exceptions
+
+        # Stats
+        self.frames_received = 0
+        self.frames_dropped = 0
 
     def test_connection(self) -> bool:
         """
