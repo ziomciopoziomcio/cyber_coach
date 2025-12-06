@@ -296,15 +296,22 @@ if __name__ == '__main__':
     frame_q: Queue = Queue(maxsize=2)
 
     def process_frame(frame):
-        """Przykładowa funkcja przetwarzania obrazu."""
-        print(f"Received frame with shape: {frame.shape}")
-        # Tutaj możesz dodać przetwarzanie obrazu
-        # np. detekcja obiektów, analiza pozy, itp.
+        """Callback wywoływany z wątku odbioru streamu.
 
-        # Przykład: wyświetlanie obrazu
-        cv2.imshow('Phone Camera', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            sys.exit(0)
+        Nie wolno wywoływać cv2.imshow / cv2.waitKey z wątku innym niż główny na Windows.
+        Tutaj tylko wpychamy klatkę do kolejki, a wyświetlanie robi pętla główna.
+        """
+        try:
+            # put_nowait, aby nie blokować wątku strumienia; nadpisywanie jest OK
+            if frame_q.full():
+                # odrzuć najstarszą klatkę, żeby zrobić miejsce (podejście "drop oldest")
+                try:
+                    _ = frame_q.get_nowait()
+                except Exception:
+                    pass
+            frame_q.put_nowait(frame)
+        except Exception as e:
+            logger.debug(f"Failed to enqueue frame: {e}")
 
     ip = input("Podaj IP telefonu (np. 192.168.1.100): ").strip() or "192.168.1.100"
     port = input("Podaj port IP Webcam (domyślnie 8080): ").strip() or "8080"
@@ -321,7 +328,19 @@ if __name__ == '__main__':
         print("\nStreamowanie... Naciśnij 'q' w oknie obrazu aby zakończyć")
         try:
             while client.is_running:
-                time.sleep(0.1)
+                try:
+                    # czekaj krótką chwilę na nową klatkę
+                    frame = frame_q.get(timeout=0.5)
+                    # wyświetlanie w głównym wątku — bezpieczne na Windows
+                    cv2.imshow('Phone Camera', frame)
+                except Empty:
+                    # brak klatki w kolejce w tym cyklu
+                    pass
+
+                # obsługa klawisza 'q'
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+
         except KeyboardInterrupt:
             print("\nZatrzymywanie...")
         finally:
@@ -333,4 +352,3 @@ if __name__ == '__main__':
         print(f"1. IP Webcam działa na telefonie")
         print(f"2. Używasz poprawnego adresu: {url}")
         print(f"3. Telefon i komputer są w tej samej sieci")
-
