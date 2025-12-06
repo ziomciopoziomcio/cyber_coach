@@ -277,12 +277,15 @@ class IPWebcamClient:
 
     def get_current_frame(self) -> Optional[np.ndarray]:
         """
-        Zwraca ostatni otrzymany obraz.
+        Zwraca ostatni otrzymany obraz (thread-safe copy).
 
         Returns:
             numpy array z obrazem lub None jeśli nie ma obrazu
         """
-        return self.current_frame
+        with self._frame_lock:
+            if self.current_frame is not None:
+                return self.current_frame.copy()
+            return None
 
 
 # Przykład użycia
