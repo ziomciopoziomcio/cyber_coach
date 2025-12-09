@@ -6,20 +6,18 @@ używając Flask-SocketIO dla komunikacji w czasie rzeczywistym.
 Wspiera również IP Webcam (MJPEG stream).
 """
 
+import logging
+import threading
+import time
+from typing import Optional, Callable
+
 import cv2
 import numpy as np
-import base64
-from flask import Flask, request, jsonify
-from flask_socketio import SocketIO, emit
-from flask_cors import CORS
-import threading
-from typing import Optional, Callable
-import logging
 import requests
-import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class IPWebcamClient:
     """
@@ -31,12 +29,20 @@ class IPWebcamClient:
     - http://<phone-ip>:8080/videofeed - alternatywny feed
     """
 
-    def __init__(self, ip_webcam_url: str = "http://192.168.1.100:8080"):
+    def __init__(self, ip_webcam_url: str = "http://192.168.1.100:8080", *,
+                 backoff_base: float = 0.5, max_backoff: float = 5.0,
+                 max_consecutive_errors: int = 10, max_buffer_size_bytes: int = 10 * 1024 * 1024,
+                 log_decode_exceptions: bool = False):
         """
         Inicjalizacja klienta IP Webcam.
 
         Args:
             ip_webcam_url: URL do IP Webcam (np. http://192.168.1.100:8080)
+            backoff_base: podstawowy czas backoffu przy reconnectach (exponential backoff)
+            max_backoff: maksymalny czas w sekundach między próbami reconnectu
+            max_consecutive_errors: po ilu kolejnych błędach przerywamy próbę łączenia
+            max_buffer_size_bytes: maksymalny rozmiar wewnętrznego bufora MJPEG; po przekroczeniu czyścimy
+            log_decode_exceptions: jeśli True, logujemy szczegóły wyjątków dekodowania (może być głośne)
         """
         self.base_url = ip_webcam_url.rstrip('/')
         self.video_url = f"{self.base_url}/video"
@@ -46,6 +52,18 @@ class IPWebcamClient:
         self.frame_callback: Optional[Callable] = None
         self.is_running = False
         self._stream_thread = None
+        self._frame_lock = threading.Lock()
+
+        # reconnect / robustness settings
+        self.backoff_base = backoff_base
+        self.max_backoff = max_backoff
+        self.max_consecutive_errors = max_consecutive_errors
+        self.max_buffer_size_bytes = max_buffer_size_bytes
+        self.log_decode_exceptions = log_decode_exceptions
+
+        # Stats
+        self.frames_received = 0
+        self.frames_dropped = 0
 
     def test_connection(self) -> bool:
         """
@@ -79,50 +97,165 @@ class IPWebcamClient:
         return None
 
     def _stream_loop(self):
-        """Główna pętla odbierająca strumień MJPEG."""
+        """Główna pętla odbierająca strumień MJPEG.
+
+        Zmieniono aby była odporna na chwilowe przerwy połączenia/przesyłu:
+        - ignoruje puste/chybione kawałki danych zamiast przerywać działanie
+        - próbuje ponownie po krótkim backoffie w przypadku błędów sieciowych
+        - ogranicza częstotliwość ponownych prób, by nie tworzyć busy-loop
+        """
         logger.info(f"Starting IP Webcam stream from {self.video_url}")
 
-        try:
-            response = requests.get(self.video_url, stream=True, timeout=10)
+        consecutive_errors = 0
 
-            if response.status_code != 200:
-                logger.error(f"Failed to connect: HTTP {response.status_code}")
-                self.is_running = False
-                return
+        # Dopóki klient jest uruchomiony, próbuj (ponownie) połączyć/odczytywać
+        while self.is_running:
+            try:
+                response = requests.get(self.video_url, stream=True, timeout=10)
 
-            # Bufor do odczytu MJPEG
-            bytes_data = bytes()
+                if response.status_code != 200:
+                    logger.error(f"Failed to connect: HTTP {response.status_code}")
+                    consecutive_errors += 1
+                    sleep_time = min(self.backoff_base * (2 ** consecutive_errors),
+                                     self.max_backoff)
+                    time.sleep(sleep_time)
+                    continue
 
-            for chunk in response.iter_content(chunk_size=1024):
+                # Reset błędów po poprawnym połączeniu
+                consecutive_errors = 0
+
+                # Bufor do odczytu MJPEG
+                bytes_data = bytes()
+                last_frame_time = time.time()
+
+                for chunk in response.iter_content(chunk_size=8192):  # Większe chunki
+                    if not self.is_running:
+                        break
+
+                    # Chunk może być pusty gdy łącze chwilowo nie wysyła danych
+                    if not chunk:
+                        # krótki sleep żeby nie spinować CPU
+                        time.sleep(0.001)
+                        continue
+
+                    bytes_data += chunk
+
+                    # Regularnie czyść stary bufor jeśli jest za duży (zapobiega memory leaks)
+                    if len(bytes_data) > self.max_buffer_size_bytes:
+                        logger.warning(f"Buffer overflow ({len(bytes_data)} bytes), resetting")
+                        # Znajdź ostatni kompletny start markera i zachowaj tylko od niego
+                        last_start = bytes_data.rfind(b'\xff\xd8')
+                        if last_start > 0:
+                            bytes_data = bytes_data[last_start:]
+                        else:
+                            bytes_data = bytes()
+                        continue
+
+                    # MJPEG format: każda klatka zaczyna się od FFD8 i kończy FFD9
+                    while True:  # Przetwórz wszystkie kompletne ramki w buforze
+                        a = bytes_data.find(b'\xff\xd8')  # Start JPEG
+                        b = bytes_data.find(b'\xff\xd9')  # End JPEG
+
+                        if a == -1 or b == -1 or b <= a:
+                            # Brak kompletnej ramki, usuń śmieci przed startem
+                            if a > 0:
+                                bytes_data = bytes_data[a:]
+                            elif a == -1 and len(
+                                    bytes_data) > 50000:  # Jeśli brak początku i dużo danych, wyczyść
+                                bytes_data = bytes()
+                            break
+
+                        jpg = bytes_data[a:b + 2]
+                        bytes_data = bytes_data[b + 2:]
+
+                        # Dekoduj obraz - imdecode może zwrócić None dla uszkodzonych danych
+                        try:
+                            arr = np.frombuffer(jpg, dtype=np.uint8)
+                            if arr.size == 0:
+                                # pusta ramka - pomiń
+                                logger.debug("Received empty JPEG buffer, skipping")
+                                self.frames_dropped += 1
+                                continue
+
+                            try:
+                                frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                            except Exception as cv_err:
+                                # Cv2 may raise cv2.error; avoid printing full stack by default
+                                if self.log_decode_exceptions:
+                                    logger.exception(f"cv2.imdecode error: {cv_err}")
+                                else:
+                                    logger.debug(f"cv2.imdecode error (skipping frame): {cv_err}")
+                                self.frames_dropped += 1
+                                continue
+
+                            if frame is None:
+                                logger.debug(
+                                    "cv2.imdecode returned None (corrupted JPEG?), skipping frame")
+                                self.frames_dropped += 1
+                                continue
+
+                            # Ustaw ramkę i wywołaj callback (thread-safe)
+                            with self._frame_lock:
+                                self.current_frame = frame
+                                self.frames_received += 1
+
+                            current_time = time.time()
+                            fps = 1.0 / (
+                                        current_time - last_frame_time) if current_time > last_frame_time else 0
+                            last_frame_time = current_time
+
+                            if self.frames_received % 100 == 0:
+                                logger.info(
+                                    f"Frames: {self.frames_received}, Dropped: {self.frames_dropped}, FPS: {fps:.1f}")
+
+                            if self.frame_callback:
+                                try:
+                                    self.frame_callback(frame)
+                                except Exception as cb_e:
+                                    logger.exception(f"Frame callback error: {cb_e}")
+
+                        except Exception as decode_e:
+                            # Nie przerywamy całego streamu z powodu pojedynczego złego kawałka
+                            if self.log_decode_exceptions:
+                                logger.debug(f"Frame decode error (skipping): {decode_e}")
+                            else:
+                                logger.debug("Frame decode error (skipping)")
+                            self.frames_dropped += 1
+                            continue
+
+                # Jeśli wyszliśmy z pętli iter_content bez self.is_running, prawdopodobnie zakończono
                 if not self.is_running:
                     break
 
-                bytes_data += chunk
+                # Jeżeli połączenie zostało przerwane ze strony serwera, spróbujmy ponownie
+                logger.info("Stream connection closed by server, will attempt reconnect")
+                consecutive_errors += 1
+                sleep_time = min(self.backoff_base * (2 ** consecutive_errors), self.max_backoff)
+                time.sleep(sleep_time)
 
-                # MJPEG format: każda klatka zaczyna się od FFD8 i kończy FFD9
-                a = bytes_data.find(b'\xff\xd8')  # Start JPEG
-                b = bytes_data.find(b'\xff\xd9')  # End JPEG
+            except requests.RequestException as req_e:
+                logger.warning(f"Stream network error: {req_e}")
+                consecutive_errors += 1
+                if consecutive_errors >= self.max_consecutive_errors:
+                    logger.error("Maximum consecutive connection errors reached, stopping stream")
+                    break
+                sleep_time = min(self.backoff_base * (2 ** consecutive_errors), self.max_backoff)
+                time.sleep(sleep_time)
+                continue
+            except Exception as e:
+                # Nieprzewidziane błędy - loguj bez długiego stosu (zachowaj prosty komunikat)
+                logger.error(f"Stream unexpected error: {e}")
+                consecutive_errors += 1
+                if consecutive_errors >= self.max_consecutive_errors:
+                    logger.error("Maximum consecutive errors reached, stopping stream")
+                    break
+                sleep_time = min(self.backoff_base * (2 ** consecutive_errors), self.max_backoff)
+                time.sleep(sleep_time)
+                continue
 
-                if a != -1 and b != -1:
-                    jpg = bytes_data[a:b+2]
-                    bytes_data = bytes_data[b+2:]
-
-                    # Dekoduj obraz
-                    frame = cv2.imdecode(
-                        np.frombuffer(jpg, dtype=np.uint8),
-                        cv2.IMREAD_COLOR
-                    )
-
-                    if frame is not None:
-                        self.current_frame = frame
-                        if self.frame_callback:
-                            self.frame_callback(frame)
-
-        except Exception as e:
-            logger.error(f"Stream error: {e}")
-        finally:
-            self.is_running = False
-            logger.info("Stream stopped")
+        # Zakończenie pracy pętli
+        self.is_running = False
+        logger.info("Stream stopped")
 
     def start_stream(self):
         """Rozpoczyna odbieranie strumienia w osobnym wątku."""
@@ -154,28 +287,43 @@ class IPWebcamClient:
 
     def get_current_frame(self) -> Optional[np.ndarray]:
         """
-        Zwraca ostatni otrzymany obraz.
+        Zwraca ostatni otrzymany obraz (thread-safe copy).
 
         Returns:
             numpy array z obrazem lub None jeśli nie ma obrazu
         """
-        return self.current_frame
+        with self._frame_lock:
+            if self.current_frame is not None:
+                return self.current_frame.copy()
+            return None
 
 
 # Przykład użycia
 if __name__ == '__main__':
-    import sys
+    from queue import Queue, Empty
+
+    # używamy kolejki aby przenieść wyświetlanie obrazu do głównego wątku
+    frame_q: Queue = Queue(maxsize=2)
+
 
     def process_frame(frame):
-        """Przykładowa funkcja przetwarzania obrazu."""
-        print(f"Received frame with shape: {frame.shape}")
-        # Tutaj możesz dodać przetwarzanie obrazu
-        # np. detekcja obiektów, analiza pozy, itp.
+        """Callback wywoływany z wątku odbioru streamu.
 
-        # Przykład: wyświetlanie obrazu
-        cv2.imshow('Phone Camera', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            sys.exit(0)
+        Nie wolno wywoływać cv2.imshow / cv2.waitKey z wątku innym niż główny na Windows.
+        Tutaj tylko wpychamy klatkę do kolejki, a wyświetlanie robi pętla główna.
+        """
+        try:
+            # put_nowait, aby nie blokować wątku strumienia; nadpisywanie jest OK
+            if frame_q.full():
+                # odrzuć najstarszą klatkę, żeby zrobić miejsce (podejście "drop oldest")
+                try:
+                    _ = frame_q.get_nowait()
+                except Exception:
+                    pass
+            frame_q.put_nowait(frame)
+        except Exception as e:
+            logger.debug(f"Failed to enqueue frame: {e}")
+
 
     ip = input("Podaj IP telefonu (np. 192.168.1.100): ").strip() or "192.168.1.100"
     port = input("Podaj port IP Webcam (domyślnie 8080): ").strip() or "8080"
@@ -192,7 +340,19 @@ if __name__ == '__main__':
         print("\nStreamowanie... Naciśnij 'q' w oknie obrazu aby zakończyć")
         try:
             while client.is_running:
-                time.sleep(0.1)
+                try:
+                    # czekaj krótką chwilę na nową klatkę
+                    frame = frame_q.get(timeout=0.5)
+                    # wyświetlanie w głównym wątku — bezpieczne na Windows
+                    cv2.imshow('Phone Camera', frame)
+                except Empty:
+                    # brak klatki w kolejce w tym cyklu
+                    pass
+
+                # obsługa klawisza 'q'
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+
         except KeyboardInterrupt:
             print("\nZatrzymywanie...")
         finally:
@@ -204,4 +364,3 @@ if __name__ == '__main__':
         print(f"1. IP Webcam działa na telefonie")
         print(f"2. Używasz poprawnego adresu: {url}")
         print(f"3. Telefon i komputer są w tej samej sieci")
-
