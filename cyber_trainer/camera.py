@@ -80,12 +80,13 @@ def main():
                 if completed_rep.is_complete:
                     status = "DOBRE POWTORZENIE"
                     color = COLOR_OK
-                    print(f"✓ Rep {len(rules.repetitions)}: ROM={completed_rep.rom:.1f} deg")
+                    print(f"✓ Rep {len(rules.repetitions)}: ROM={completed_rep.rom:.1f}°")
                 else:
-                    status = "NIEPELNE POWTORZENIE"
-                    color = COLOR_WARNING
-                    print(f"✗ Rep {len(rules.repetitions)}: ROM={completed_rep.rom:.1f} deg "
-                          f"(min: {rules.MIN_ROM} deg)")
+                    status = "ODRZUCONE"  # ← zmieniono z "NIEPEŁNE"
+                    color = COLOR_ERROR
+                    # Wyświetl powody odrzucenia
+                    error_msg = " | ".join(completed_rep.errors)
+                    print(f"✗ Rep {len(rules.repetitions)}: {error_msg}")
 
                 last_rep_message = (status, color, completed_rep.rom)
                 last_rep_time = time.time()
