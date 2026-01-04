@@ -40,46 +40,45 @@ class ShoulderPressRules:
         'left_hip': (100, 133),
     }
 
-    # NOWE: Progi dla POWTÓRZEŃ (min/max kąt żeby zliczyć rep)
-    # Format: {staw: (min_angle_dla_dolu, max_angle_dla_gory)}
+    # Progi dla POWTÓRZEŃ (min/max kąt żeby zliczyć rep)
     FRONT_VIEW_ROM_THRESHOLDS = {
-        'left_shoulder': (50, 150),  # ramiona: 50° -> 150°
+        'left_shoulder': (50, 150),
         'right_shoulder': (50, 150),
-        'left_elbow': (50, 160),  # łokcie: 50° -> 160°
+        'left_elbow': (50, 160),
         'right_elbow': (50, 160),
     }
 
     SIDE_VIEW_ROM_THRESHOLDS = {
-        'left_shoulder': (10, 140),  # ramiona: 10° -> 140°
-        'left_elbow': (20, 160),  # łokieć: 20° -> 160°
+        'left_shoulder': (10, 140),
+        'left_elbow': (20, 160),
     }
 
-    MIN_ROM = 100.0  # minimalny ROM (różnica max-min) dla "pełnego" powtórzenia
-    PEAK_DETECTION_WINDOW = 10  # ile klatek do wykrywania piku
-    MIN_PEAK_PROMINENCE = 15.0  # minimalna różnica między pikiem a doliną
+    MIN_ROM = 40.0  # minimalny ROM (różnica max-min) dla "pełnego" powtórzenia
+    PEAK_DETECTION_WINDOW = 10
+    MIN_PEAK_PROMINENCE = 15.0
 
     def __init__(self, view_type: str = 'front'):
         self.view_type = view_type.lower()
         if self.view_type == 'front':
             self.angle_ranges = self.FRONT_VIEW_RANGES
             self.rom_thresholds = self.FRONT_VIEW_ROM_THRESHOLDS
-            # Używamy średniej z ramion i łokci
             self.primary_joints = ['left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow']
         elif self.view_type == 'side':
             self.angle_ranges = self.SIDE_VIEW_RANGES
             self.rom_thresholds = self.SIDE_VIEW_ROM_THRESHOLDS
             self.primary_joints = ['left_shoulder', 'left_elbow']
         else:
-            raise ValueError(f"Nieznany typ widoku: {view_type}")
+            raise ValueError(f"Nieznany view_type: {view_type}")
 
         # Historia kątów do detekcji pików
-        self.angle_history: List[Tuple[int, float]] = []  # (frame_idx, avg_angle)
+        self.angle_history: List[Tuple[int, float]] = []
         self.last_peak_frame = -1
         self.last_valley_frame = -1
         self.last_peak_angle = None
         self.last_valley_angle = None
 
         self.repetitions: List[Repetition] = []
+        self.has_error_in_current_rep = False  # ← DODANE: śledzenie błędów
 
     def check_angles(self, angles: Dict[str, Optional[float]]) -> Dict[str, JointStatus]:
         """Sprawdza czy kąty są w dozwolonych zakresach (dla błędów techniki)."""
@@ -90,13 +89,12 @@ class ShoulderPressRules:
 
             if angle is None:
                 results[joint] = JointStatus.MISSING
-                continue
-
-            min_angle, max_angle = self.angle_ranges[joint]
-            if min_angle <= angle <= max_angle:
-                results[joint] = JointStatus.OK
             else:
-                results[joint] = JointStatus.ERROR
+                min_angle, max_angle = self.angle_ranges[joint]
+                if min_angle <= angle <= max_angle:
+                    results[joint] = JointStatus.OK
+                else:
+                    results[joint] = JointStatus.ERROR
 
         return results
 
@@ -112,16 +110,14 @@ class ShoulderPressRules:
             return None
         return float(np.mean(valid_angles))
 
-    # analysis/exercise_rules.py
-
     def _check_rom_thresholds(self, min_angle: float, max_angle: float) -> bool:
         """
         Sprawdza czy ruch osiągnął wymagane progi.
 
-        NOWA LOGIKA:
-        - ROM musi być >= MIN_ROM (np. 40°)
+        LOGIKA:
+        - ROM musi być >= MIN_ROM
         - ZAKRES [min_angle, max_angle] musi "pokrywać" wymagany zakres [low, high]
-          dla KTÓREGOKOLWIEK stawu
+          dla KTÓREGOKOLWIEK stawu z tolerancją ±20°
         """
         rom = max_angle - min_angle
 
@@ -130,21 +126,16 @@ class ShoulderPressRules:
             return False
 
         # Warunek 2: zakres musi "przecinać" wymagany zakres któregoś stawu
+        TOLERANCE = 20.0
+
         for joint_name, (low_thresh, high_thresh) in self.rom_thresholds.items():
-            # Sprawdź czy zakres [min_angle, max_angle] "pokrywa" zakres [low_thresh, high_thresh]
-            # Wystarczy że:
-            # - min_angle jest w rozsądnej odległości od low_thresh (np. ±20°)
-            # - max_angle jest w rozsądnej odległości od high_thresh (np. ±20°)
-
-            TOLERANCE = 20.0  # tolerancja w stopniach
-
             covers_bottom = min_angle <= (low_thresh + TOLERANCE)
             covers_top = max_angle >= (high_thresh - TOLERANCE)
 
             if covers_bottom and covers_top:
-                return True  # ten staw osiągnął wymagany zakres
+                return True
 
-        return False  # żaden staw nie osiągnął zakresu
+        return False
 
     def _is_local_maximum(self, idx: int) -> bool:
         """Sprawdza czy punkt w historii jest lokalnym maksimum."""
@@ -154,8 +145,9 @@ class ShoulderPressRules:
         center_angle = self.angle_history[idx][1]
 
         for i in range(idx - self.PEAK_DETECTION_WINDOW, idx + self.PEAK_DETECTION_WINDOW + 1):
-            if i != idx and self.angle_history[i][1] >= center_angle:
-                return False
+            if i != idx:
+                if self.angle_history[i][1] >= center_angle:
+                    return False
 
         return True
 
@@ -167,8 +159,9 @@ class ShoulderPressRules:
         center_angle = self.angle_history[idx][1]
 
         for i in range(idx - self.PEAK_DETECTION_WINDOW, idx + self.PEAK_DETECTION_WINDOW + 1):
-            if i != idx and self.angle_history[i][1] <= center_angle:
-                return False
+            if i != idx:
+                if self.angle_history[i][1] <= center_angle:
+                    return False
 
         return True
 
@@ -183,6 +176,10 @@ class ShoulderPressRules:
         if avg_angle is None:
             return None
 
+        # ← DODANE: sprawdź czy są błędy w bieżącej klatce
+        if self.has_angle_errors(angles):
+            self.has_error_in_current_rep = True
+
         self.angle_history.append((frame_idx, avg_angle))
 
         if len(self.angle_history) > 200:
@@ -196,9 +193,8 @@ class ShoulderPressRules:
 
         # Wykryj pik (maksimum)
         if self._is_local_maximum(check_idx):
-            # Jeśli mamy poprzednią dolinę, sprawdź czy jest pełne powtórzenie
             if self.last_valley_frame >= 0 and self.last_valley_angle is not None:
-                # POPRAWKA: oblicz min/max z CAŁEGO zakresu między doliną a pikiem
+                # Oblicz min/max z CAŁEGO zakresu między doliną a pikiem
                 frames_between = [
                     angle for frame, angle in self.angle_history
                     if self.last_valley_frame <= frame <= check_frame
@@ -209,8 +205,17 @@ class ShoulderPressRules:
                     max_angle = max(frames_between)
                     rom = max_angle - min_angle
 
-                    # Sprawdź progi
-                    is_complete = self._check_rom_thresholds(min_angle, max_angle)
+                    # ← ZMIENIONE: uwzględnij błędy techniczne
+                    is_complete = (
+                            not self.has_error_in_current_rep and  # ← brak błędów
+                            self._check_rom_thresholds(min_angle, max_angle)
+                    )
+
+                    errors = []
+                    if self.has_error_in_current_rep:
+                        errors.append("Niepoprawna technika podczas ruchu")
+                    if rom < self.MIN_ROM:
+                        errors.append(f"ROM za mały ({rom:.1f}° < {self.MIN_ROM}°)")
 
                     rep = Repetition(
                         start_frame=self.last_valley_frame,
@@ -219,24 +224,25 @@ class ShoulderPressRules:
                         max_angle=max_angle,
                         rom=rom,
                         is_complete=is_complete,
-                        errors=[] if is_complete else ["ROM za mały lub nie osiągnięto progów"]
+                        errors=errors
                     )
 
                     self.repetitions.append(rep)
 
-                    # Reset dla następnego powtórzenia
+                    # ← DODANE: reset flagi błędów
                     self.last_valley_frame = -1
                     self.last_valley_angle = None
+                    self.has_error_in_current_rep = False  # ← reset
 
                     return rep
 
-            # Zapisz pik
             self.last_peak_frame = check_frame
             self.last_peak_angle = check_angle
 
         # Wykryj dolinę (minimum)
         elif self._is_local_minimum(check_idx):
-            # Zapisz dolinę (początek potencjalnego powtórzenia)
+            # ← DODANE: reset błędów na początku nowego powtórzenia
+            self.has_error_in_current_rep = False
             self.last_valley_frame = check_frame
             self.last_valley_angle = check_angle
 
@@ -258,5 +264,5 @@ class ShoulderPressRules:
             'total_reps': len(self.repetitions),
             'complete_reps': len(complete),
             'incomplete_reps': len(self.repetitions) - len(complete),
-            'avg_rom': np.mean([r.rom for r in self.repetitions]) if self.repetitions else 0.0
+            'avg_rom': np.mean([r.rom for r in self.repetitions])
         }
