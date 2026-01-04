@@ -1,4 +1,3 @@
-# cyber_trainer/camera.py
 from posedetector import PoseDetector
 from preprocessing import JointAngleCalculator
 from pathlib import Path
