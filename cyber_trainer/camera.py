@@ -11,7 +11,7 @@ from analysis.exercise_rules import ShoulderPressRules, JointStatus
 
 def main():
     USE_CAMERA = False  # True = kamery na żywo, False = pliki wideo
-    ENABLE_DUAL_VIEW = False  # True = przód + bok jednocześnie, False = jeden widok
+    ENABLE_DUAL_VIEW = True  # True = przód + bok jednocześnie, False = jeden widok
     VIEW_TYPE = 'side'  # tylko jeśli ENABLE_DUAL_VIEW = False
     ENABLE_FEEDBACK = True
 
