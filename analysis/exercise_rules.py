@@ -35,7 +35,7 @@ class ShoulderPressRules:
     }
 
     SIDE_VIEW_RANGES = {
-        'left_shoulder': (0, 176),
+        'left_shoulder': (0, 180),
         'left_elbow': (0, 180),
         'left_hip': (100, 133),
     }
