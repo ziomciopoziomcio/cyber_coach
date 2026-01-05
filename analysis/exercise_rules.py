@@ -35,8 +35,8 @@ class ShoulderPressRules:
     }
 
     SIDE_VIEW_RANGES = {
-        'left_shoulder': (0, 160),
-        'left_elbow': (8, 180),
+        'left_shoulder': (0, 176),
+        'left_elbow': (0, 180),
         'left_hip': (100, 133),
     }
 
@@ -49,11 +49,11 @@ class ShoulderPressRules:
     }
 
     SIDE_VIEW_ROM_THRESHOLDS = {
-        'left_shoulder': (10, 140),
+        'left_shoulder': (10, 160),
         'left_elbow': (20, 160),
     }
 
-    MIN_ROM = 40.0  # minimalny ROM (różnica max-min) dla "pełnego" powtórzenia
+    MIN_ROM = 100.0  # minimalny ROM (różnica max-min) dla "pełnego" powtórzenia
     PEAK_DETECTION_WINDOW = 10
     MIN_PEAK_PROMINENCE = 15.0
 
