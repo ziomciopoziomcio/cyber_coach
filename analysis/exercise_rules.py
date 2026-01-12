@@ -35,8 +35,6 @@ class ShoulderPressRules:
     }
 
     SIDE_VIEW_RANGES = {
-        'left_shoulder': (0, 180),
-        'left_elbow': (0, 180),
         'left_hip': (100, 133),
     }
 
@@ -49,8 +47,7 @@ class ShoulderPressRules:
     }
 
     SIDE_VIEW_ROM_THRESHOLDS = {
-        'left_shoulder': (10, 160),
-        'left_elbow': (20, 160),
+        'left_hip': (100, 133),
     }
 
     MIN_ROM = 100.0  # minimalny ROM (różnica max-min) dla "pełnego" powtórzenia
@@ -66,7 +63,7 @@ class ShoulderPressRules:
         elif self.view_type == 'side':
             self.angle_ranges = self.SIDE_VIEW_RANGES
             self.rom_thresholds = self.SIDE_VIEW_ROM_THRESHOLDS
-            self.primary_joints = ['left_shoulder', 'left_elbow']
+            self.primary_joints = ['left_hip']
         else:
             raise ValueError(f"Nieznany view_type: {view_type}")
 
