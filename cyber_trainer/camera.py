@@ -1,5 +1,5 @@
 from posedetector import PoseDetector
-from preprocessing import JointAngleCalculator
+from .preprocessing import JointAngleCalculator
 from pathlib import Path
 import sys
 import cv2
