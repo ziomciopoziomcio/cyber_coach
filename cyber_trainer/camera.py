@@ -28,11 +28,11 @@ def wait_for_first_frame(client, timeout=WAIT_FIRST_FRAME, poll=POLL_INTERVAL):
     return False
 
 def main():
-    USE_CAMERA = False
-    USE_PHONE_STREAMS = True
-    ENABLE_DUAL_VIEW = True
-    VIEW_TYPE = 'front'
-    ENABLE_FEEDBACK = True
+    use_camera = False
+    use_phone_streams = True
+    enable_dual_view = True
+    view_type = 'front'
+    enable_feedback = True
 
     project_root = Path(__file__).parent.parent
 
@@ -43,7 +43,7 @@ def main():
     view_names = []
 
     # Konfiguracja źródeł i reguł
-    if ENABLE_DUAL_VIEW:
+    if enable_dual_view:
         # reguły i nazwy okien dla obu widoków (zawsze ustawiamy)
         rules_front = ShoulderPressRules(view_type='front')
         rules_side = ShoulderPressRules(view_type='side')
@@ -51,12 +51,12 @@ def main():
         window_names = ['Front View', 'Side View']
         view_names = ['front', 'side']
 
-        if USE_PHONE_STREAMS:
-            PHONE_FRONT_URL = "http://192.168.1.237:8081"
-            PHONE_SIDE_URL = "http://192.168.1.101:8080" # do uzupełnienia
+        if use_phone_streams:
+            phone_front_url = "http://192.168.1.237:8081"
+            phone_side_url = "http://192.168.1.101:8080" # do uzupełnienia
 
-            client_front = IPWebcamClient(PHONE_FRONT_URL)
-            client_side = IPWebcamClient(PHONE_SIDE_URL)
+            client_front = IPWebcamClient(phone_front_url)
+            client_side = IPWebcamClient(phone_side_url)
             client_front.start_stream()
             client_side.start_stream()
             if not wait_for_first_frame(client_front):
@@ -66,15 +66,15 @@ def main():
             phone_clients = [client_front, client_side]
             caps = [None, None]
         else:
-            source_front = 0 if USE_CAMERA else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_przod.mp4')
-            source_side = 1 if USE_CAMERA else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_bok.mp4')
+            source_front = 0 if use_camera else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_przod.mp4')
+            source_side = 1 if use_camera else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_bok.mp4')
             cap_front = cv2.VideoCapture(source_front)
             cap_side = cv2.VideoCapture(source_side)
             caps = [cap_front, cap_side]
     else:
-        if USE_PHONE_STREAMS:
-            PHONE_URL = "http://192.168.1.237:8081"
-            client = IPWebcamClient(PHONE_URL)
+        if use_phone_streams:
+            phone_url = "http://192.168.1.237:8081"
+            client = IPWebcamClient(phone_url)
             client.start_stream()
             if not wait_for_first_frame(client):
                 logger.warning("Nie otrzymano pierwszej klatki z telefonu w ciągu kilku sekund. "
@@ -83,14 +83,14 @@ def main():
             phone_clients = [client]
             caps = [None]
         else:
-            source = 0 if USE_CAMERA else str(project_root / 'data' / 'videos' / 'try1' / 'jurek_1_bok.mp4')
+            source = 0 if use_camera else str(project_root / 'data' / 'videos' / 'try1' / 'jurek_1_bok.mp4')
             cap = cv2.VideoCapture(source)
             caps = [cap]
 
-        rules_single = ShoulderPressRules(view_type=VIEW_TYPE)
+        rules_single = ShoulderPressRules(view_type=view_type)
         rules_list = [rules_single]
         window_names = ['Cyber Coach - Live Training']
-        view_names = [VIEW_TYPE]
+        view_names = [view_type]
 
     detector = PoseDetector(complexity=2)
     calc = JointAngleCalculator(visibility_threshold=0.5)
@@ -105,21 +105,21 @@ def main():
         "left_hip": 23, "right_hip": 24
     }
 
-    COLOR_OK = (0, 255, 0)
-    COLOR_ERROR = (0, 0, 255)
-    COLOR_NEUTRAL = (200, 200, 200)
+    color_ok = (0, 255, 0)
+    color_error = (0, 0, 255)
+    color_neutral = (200, 200, 200)
 
     last_rep_messages = [None] * len(caps)
     last_rep_times = [0.0] * len(caps)
-    MESSAGE_DURATION = 3.0
+    message_duration = 3.0
 
     confirmed_reps = 0
 
     # pomocnicze przechowywanie ostatnio wykrytych repów per widok (do synchronizacji dual view)
     recent_rep_by_view = {}
 
-    print(f"Tryb: {'Oba widoki (synchronizacja)' if ENABLE_DUAL_VIEW else VIEW_TYPE}")
-    print(f"Źródło: {'Kamery na żywo' if USE_CAMERA else 'Pliki wideo' if not USE_PHONE_STREAMS else 'Telefony (IP Webcam)'}")
+    print(f"Tryb: {'Oba widoki (synchronizacja)' if enable_dual_view else view_type}")
+    print(f"Źródło: {'Kamery na żywo' if use_camera else 'Pliki wideo' if not use_phone_streams else 'Telefony (IP Webcam)'}")
     print("Naciśnij 'q' aby zakończyć\n")
 
     try:
@@ -180,7 +180,7 @@ def main():
                         angles_side = angles
 
                     # feedback (błędy techniczne)
-                    has_errors = rule_set.has_angle_errors(angles) if ENABLE_FEEDBACK else False
+                    has_errors = rule_set.has_angle_errors(angles) if enable_feedback else False
 
                     # update detekcji powtórzeń
                     completed_rep = rule_set.update_repetition_tracking(angles, frame_idx)
@@ -188,13 +188,13 @@ def main():
                     if completed_rep:
                         # przygotuj komunikat dla użytkownika
                         status_msg = "OK" if completed_rep.is_complete else "NIEPOPRAWNE"
-                        msg_color = COLOR_OK if completed_rep.is_complete else COLOR_ERROR
+                        msg_color = color_ok if completed_rep.is_complete else color_error
                         rom = completed_rep.rom
                         last_rep_messages[i] = (status_msg, msg_color, rom)
                         last_rep_times[i] = time.time()
 
                         # synchronizacja przy dual view: sprawdź rep w drugim widoku
-                        if ENABLE_DUAL_VIEW:
+                        if enable_dual_view:
                             recent_rep_by_view[view_name] = (completed_rep, frame_idx, completed_rep.is_complete)
                             # sprawdź czy jest rep w drugim widoku w bliskim czasie
                             other_view = 'side' if view_name == 'front' else 'front'
@@ -210,7 +210,7 @@ def main():
                                         # znajdujemy indeksy okien i ustawiamy wiadomości
                                         for j, vn in enumerate(view_names):
                                             if vn in (view_name, other_view):
-                                                last_rep_messages[j] = ("ZATWIERDZONO", COLOR_OK, rom)
+                                                last_rep_messages[j] = ("ZATWIERDZONO", color_ok, rom)
                                                 last_rep_times[j] = time.time()
                                 # usuń starsze repy, żeby nie mnożyć potwierdzeń
                                 recent_rep_by_view.pop(other_view, None)
@@ -232,7 +232,7 @@ def main():
                             lm = lm_list[idx_lm]
                             x = int(lm.x * w)
                             y = int(lm.y * h)
-                            color = COLOR_OK if not rule_set.has_angle_errors({joint_name: angle}) else COLOR_ERROR
+                            color = color_ok if not rule_set.has_angle_errors({joint_name: angle}) else color_error
                             cv2.putText(frame, f"{int(angle)}", (x + 15, y - 10),
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
                             cv2.circle(frame, (x, y), 6, color, -1)
@@ -249,10 +249,10 @@ def main():
                 cv2.putText(frame, f"FPS: {int(fps)}", (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                 cv2.putText(frame, f"Powtorzenia (zatw.): {confirmed_reps}", (10, 70),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_OK, 2)
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, color_ok, 2)
 
                 if last_rep_messages[i] is not None:
-                    if (time.time() - last_rep_times[i]) < MESSAGE_DURATION:
+                    if (time.time() - last_rep_times[i]) < message_duration:
                         status_msg, msg_color, rom = last_rep_messages[i]
                         cv2.putText(frame, f"{status_msg} | ROM: {rom:.1f}°", (10, 105),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, msg_color, 2)
@@ -293,7 +293,7 @@ def main():
             if summary['complete_reps'] > 0:
                 print(f"  Średni ROM: {summary['avg_rom']:.1f}°")
 
-        if ENABLE_DUAL_VIEW:
+        if enable_dual_view:
             print(f"\nZATWIERDZONE (oba widoki OK): {confirmed_reps}")
         else:
             print(f"\nZATWIERDZONE: {confirmed_reps}")
