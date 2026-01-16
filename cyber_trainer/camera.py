@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 WAIT_FIRST_FRAME = 5.0
 POLL_INTERVAL = 0.05
+SYNC_FRAME_THRESHOLD = 300
 
 def wait_for_first_frame(client, timeout=WAIT_FIRST_FRAME, poll=POLL_INTERVAL):
     start = time.time()
@@ -201,7 +202,7 @@ def main():
                             if other:
                                 other_rep, other_frame_idx, other_ok = other
                                 # prosta heurystyka synchronizacji: bliski czas wykrycia
-                                if abs(other_rep.start_frame - completed_rep.start_frame) < 300:
+                                if abs(other_rep.start_frame - completed_rep.start_frame) < SYNC_FRAME_THRESHOLD:
                                     # jeśli oba widoki OK -> zatwierdzamy
                                     if completed_rep.is_complete and other_ok:
                                         confirmed_reps += 1
