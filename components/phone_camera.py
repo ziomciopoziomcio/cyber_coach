@@ -67,14 +67,24 @@ class IPWebcamClient:
 
     def test_connection(self) -> bool:
         """
-        Testuje połączenie z IP Webcam.
-
-        Returns:
-            True jeśli połączenie działa, False w przeciwnym razie
+        Testuje połączenie z IP Webcam próbując pobrać początek streamu /video.
         """
         try:
-            response = requests.get(self.shot_url, timeout=5)
-            return response.status_code == 200
+            response = requests.get(self.video_url, timeout=3, stream=True)
+            if response.status_code == 200:
+                try:
+                    chunk = next(response.iter_content(chunk_size=1024), None)
+                    response.close()
+                    if chunk and len(chunk) > 0:
+                        logger.info(f"Connection OK: {self.video_url}")
+                        return True
+                except Exception:
+                    pass
+            logger.error(f"Failed to connect: HTTP {response.status_code}")
+            return False
+        except requests.exceptions.Timeout:
+            logger.error("Connection test timed out")
+            return False
         except Exception as e:
             logger.error(f"Connection test failed: {e}")
             return False
