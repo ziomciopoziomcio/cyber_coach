@@ -30,3 +30,6 @@ def text_to_speech(text, lang='en'):
         if os.path.exists(temp_file):
             os.remove(temp_file)
 
+if __name__ == '__main__':
+    sample_text = "Należy pamiętać, że każdy dzień jest nową szansą na osiągnięcie czegoś wspaniałego."
+    text_to_speech(sample_text, lang='pl')  # 'pl' is the language code for Polish2
