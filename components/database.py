@@ -59,6 +59,12 @@ class Database:
         self.conn: Optional[sqlite3.Connection] = None
         self._connect()
 
+    def _connect(self) -> None:
+        # allow access from multiple threads in simple scenarios
+        self.conn = sqlite3.connect(self.db_path, timeout=self.timeout, check_same_thread=False)
+        self.conn.row_factory = sqlite3.Row
+        self._create_table()
+
     def _create_table(self) -> None:
         assert self.conn is not None
         cur = self.conn.cursor()
