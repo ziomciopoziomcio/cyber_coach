@@ -248,8 +248,8 @@ class ShoulderPressRules:
 
         return None
 
-    def get_repetition_summary(self) -> Dict:
         """Zwraca podsumowanie powtórzeń."""
+    def get_repetition_summary(self, save_to_db: bool = False) -> Dict:
         if not self.repetitions:
             return {
                 'total_reps': 0,
