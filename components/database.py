@@ -152,3 +152,17 @@ class Database:
         self.conn.commit()
         return cur.lastrowid
 
+    def fetch_by_id(self, row_id: int) -> Optional[Dict[str, Any]]:
+        assert self.conn is not None
+        cur = self.conn.cursor()
+        cur.execute("SELECT * FROM sessions WHERE id = ?", (row_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        out = dict(row)
+        try:
+            out["metrics"] = json.loads(out.get("metrics_json") or "null")
+        except Exception:
+            out["metrics"] = None
+        return out
+
