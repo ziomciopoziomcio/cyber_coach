@@ -33,3 +33,9 @@ import math
 __all__ = ["Database"]
 
 
+def _ensure_dir_exists(path: str) -> None:
+    d = os.path.dirname(path)
+    if d and not os.path.exists(d):
+        os.makedirs(d, exist_ok=True)
+
+
