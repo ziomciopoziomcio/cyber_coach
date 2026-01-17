@@ -166,3 +166,18 @@ class Database:
             out["metrics"] = None
         return out
 
+    def fetch_recent(self, limit: int = 100) -> List[Dict[str, Any]]:
+        assert self.conn is not None
+        cur = self.conn.cursor()
+        cur.execute("SELECT * FROM sessions ORDER BY timestamp DESC LIMIT ?", (limit,))
+        rows = cur.fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["metrics"] = json.loads(d.get("metrics_json") or "null")
+            except Exception:
+                d["metrics"] = None
+            result.append(d)
+        return result
+
