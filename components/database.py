@@ -194,3 +194,22 @@ class Database:
         v = cur.fetchone()[0]
         return None if v is None else float(v)
 
+    def close(self) -> None:
+        if self.conn:
+            try:
+                self.conn.commit()
+            except Exception:
+                pass
+            try:
+                self.conn.close()
+            except Exception:
+                pass
+            self.conn = None
+
+    def __enter__(self) -> "Database":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+
+
