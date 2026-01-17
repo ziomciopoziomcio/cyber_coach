@@ -39,3 +39,23 @@ def _ensure_dir_exists(path: str) -> None:
         os.makedirs(d, exist_ok=True)
 
 
+class Database:
+    """Simple SQLite-backed database for storing exercise session metrics.
+
+    Each inserted record stores some indexed columns (counts and avg_rom)
+    and the full metrics dict as JSON for flexibility.
+
+    The DB file defaults to components/database.sqlite3 next to this file.
+    """
+
+    def __init__(self, db_path: Optional[str] = None, timeout: float = 5.0) -> None:
+        if db_path is None:
+            base = os.path.dirname(__file__)
+            db_path = os.path.join(base, "database.sqlite3")
+
+        _ensure_dir_exists(db_path)
+        self.db_path = os.path.abspath(db_path)
+        self.timeout = timeout
+        self.conn: Optional[sqlite3.Connection] = None
+        self._connect()
+
