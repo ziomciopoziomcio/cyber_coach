@@ -187,3 +187,10 @@ class Database:
         cur.execute("SELECT COUNT(*) FROM sessions")
         return int(cur.fetchone()[0])
 
+    def avg_rom_overall(self) -> Optional[float]:
+        assert self.conn is not None
+        cur = self.conn.cursor()
+        cur.execute("SELECT AVG(avg_rom) FROM sessions WHERE avg_rom IS NOT NULL")
+        v = cur.fetchone()[0]
+        return None if v is None else float(v)
+
