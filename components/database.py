@@ -59,3 +59,25 @@ class Database:
         self.conn: Optional[sqlite3.Connection] = None
         self._connect()
 
+    def _create_table(self) -> None:
+        assert self.conn is not None
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                exercise_name TEXT,
+                timestamp TEXT NOT NULL,
+                total_reps INTEGER,
+                complete_reps INTEGER,
+                incomplete_reps INTEGER,
+                avg_rom REAL,
+                metrics_json TEXT
+            )
+            """
+        )
+        # simple index for common queries
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_sessions_exercise ON sessions(exercise_name)")
+        cur.execute("CREATE INDEX IF NOT EXISTS idx_sessions_timestamp ON sessions(timestamp)")
+        self.conn.commit()
+
