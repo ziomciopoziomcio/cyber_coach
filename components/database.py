@@ -213,3 +213,39 @@ class Database:
         self.close()
 
 
+# --- lightweight CLI/bench for presentation ---
+if __name__ == "__main__":
+    # quick demonstration + perf data
+    print("DB demo: inserting random synthetic session metrics and reporting timings")
+    db = Database()
+
+    N = 1000
+    print(f"Inserting {N} random records...")
+    start = time.perf_counter()
+    for i in range(N):
+        total = random.randint(5, 30)
+        complete = random.randint(0, total)
+        incomplete = total - complete
+        # random avg range of ROM (0-180)
+        avg_rom = round(random.random() * 180, 2)
+        metrics = {
+            "total_reps": total,
+            "complete_reps": complete,
+            "incomplete_reps": incomplete,
+            "avg_rom": avg_rom,
+        }
+        db.insert_metrics(metrics, exercise_name=f"ex{i%5}")
+    dur = time.perf_counter() - start
+    print(f"Inserted {N} rows in {dur:.3f}s (avg {dur/N*1000:.3f} ms/insert)")
+
+    total_rows = db.count()
+    print(f"Total rows now: {total_rows}")
+    print(f"Avg ROM across DB: {db.avg_rom_overall()}")
+
+    recent = db.fetch_recent(5)
+    print("Most recent 5 rows (id, timestamp, total_reps, complete_reps, avg_rom):")
+    for r in recent:
+        print(r["id"], r["timestamp"], r["total_reps"], r["complete_reps"], r["avg_rom"])
+
+    db.close()
+    print("Done.")
