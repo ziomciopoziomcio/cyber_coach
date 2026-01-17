@@ -181,3 +181,9 @@ class Database:
             result.append(d)
         return result
 
+    def count(self) -> int:
+        assert self.conn is not None
+        cur = self.conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM sessions")
+        return int(cur.fetchone()[0])
+
