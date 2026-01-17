@@ -87,3 +87,68 @@ class Database:
         cur.execute("CREATE INDEX IF NOT EXISTS idx_sessions_timestamp ON sessions(timestamp)")
         self.conn.commit()
 
+    def insert_metrics(self, metrics: Dict[str, Any], exercise_name: Optional[str] = None,
+                       timestamp: Optional[datetime] = None) -> int:
+        """Insert a metrics dict into the DB.
+
+        metrics is expected to contain at least these keys (but the function will tolerate missing values):
+            - total_reps
+            - complete_reps
+            - incomplete_reps
+            - avg_rom
+
+        The full dict is also stored as JSON in `metrics_json`.
+        Returns the row id of the inserted record.
+        """
+        if timestamp is None:
+            # use timezone-aware UTC timestamp
+            timestamp = datetime.now(timezone.utc)
+
+        # normalize common fields
+        def _to_int(v: Any) -> Optional[int]:
+            try:
+                if v is None:
+                    return None
+                return int(v)
+            except Exception:
+                return None
+
+        def _to_float(v: Any) -> Optional[float]:
+            try:
+                if v is None:
+                    return None
+                return float(v)
+            except Exception:
+                return None
+
+        total_reps = _to_int(metrics.get("total_reps") if metrics is not None else None)
+        complete_reps = _to_int(metrics.get("complete_reps"))
+        incomplete_reps = _to_int(metrics.get("incomplete_reps"))
+        avg_rom = _to_float(metrics.get("avg_rom"))
+
+        # sanitize avg_rom (avoid NaN/inf stored in DB)
+        if not (avg_rom is None or math.isfinite(avg_rom)):
+            avg_rom = None
+
+        metrics_json = json.dumps(metrics, default=str, ensure_ascii=False)
+
+        assert self.conn is not None
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO sessions (exercise_name, timestamp, total_reps, complete_reps, incomplete_reps, avg_rom, metrics_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                exercise_name,
+                timestamp.isoformat(sep=" "),
+                total_reps,
+                complete_reps,
+                incomplete_reps,
+                avg_rom,
+                metrics_json,
+            ),
+        )
+        self.conn.commit()
+        return cur.lastrowid
+
