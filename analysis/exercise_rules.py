@@ -263,6 +263,18 @@ class ShoulderPressRules:
 
         complete = [r for r in self.repetitions if r.is_complete]
 
+        if save_to_db:
+            db = database.Database()
+            metrics = {
+                'total_reps': len(self.repetitions),
+                'complete_reps': len(complete),
+                'incomplete_reps': len(self.repetitions) - len(complete),
+                'avg_rom': float(np.mean([r.rom for r in self.repetitions]))
+            }
+            db.insert_metrics(metrics, timestamp=datetime.now())
+            db.close()
+
+
         return {
             'total_reps': len(self.repetitions),
             'complete_reps': len(complete),
