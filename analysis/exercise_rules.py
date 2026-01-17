@@ -248,8 +248,11 @@ class ShoulderPressRules:
 
         return None
 
-        """Zwraca podsumowanie powtórzeń."""
     def get_repetition_summary(self, save_to_db: bool = False) -> Dict:
+        """Zwraca podsumowanie powtórzeń.
+        :param save_to_db: Czy zapisać podsumowanie do bazy danych.
+        :return: Słownik z podsumowaniem powtórzeń.
+        """
         if not self.repetitions:
             return {
                 'total_reps': 0,
