@@ -21,13 +21,13 @@ The module also contains a small performance test when run as a script.
 from __future__ import annotations
 
 import json
+import math
 import os
+import random
 import sqlite3
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-import time
-import random
-import math
 
 # Public API
 __all__ = ["Database"]
@@ -70,15 +70,16 @@ class Database:
         cur = self.conn.cursor()
         cur.execute(
             """
-            CREATE TABLE IF NOT EXISTS sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                exercise_name TEXT,
-                timestamp TEXT NOT NULL,
-                total_reps INTEGER,
-                complete_reps INTEGER,
+            CREATE TABLE IF NOT EXISTS sessions
+            (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                exercise_name   TEXT,
+                timestamp       TEXT NOT NULL,
+                total_reps      INTEGER,
+                complete_reps   INTEGER,
                 incomplete_reps INTEGER,
-                avg_rom REAL,
-                metrics_json TEXT
+                avg_rom         REAL,
+                metrics_json    TEXT
             )
             """
         )
@@ -136,7 +137,8 @@ class Database:
         cur = self.conn.cursor()
         cur.execute(
             """
-            INSERT INTO sessions (exercise_name, timestamp, total_reps, complete_reps, incomplete_reps, avg_rom, metrics_json)
+            INSERT INTO sessions (exercise_name, timestamp, total_reps, complete_reps,
+                                  incomplete_reps, avg_rom, metrics_json)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
@@ -234,9 +236,9 @@ if __name__ == "__main__":
             "incomplete_reps": incomplete,
             "avg_rom": avg_rom,
         }
-        db.insert_metrics(metrics, exercise_name=f"ex{i%5}")
+        db.insert_metrics(metrics, exercise_name=f"ex{i % 5}")
     dur = time.perf_counter() - start
-    print(f"Inserted {N} rows in {dur:.3f}s (avg {dur/N*1000:.3f} ms/insert)")
+    print(f"Inserted {N} rows in {dur:.3f}s (avg {dur / N * 1000:.3f} ms/insert)")
 
     total_rows = db.count()
     print(f"Total rows now: {total_rows}")

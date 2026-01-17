@@ -1,7 +1,8 @@
-from datetime import datetime
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 
 from components import database
@@ -139,7 +140,8 @@ class ShoulderPressRules:
 
     def _is_local_maximum(self, idx: int) -> bool:
         """Sprawdza czy punkt w historii jest lokalnym maksimum."""
-        if idx < self.PEAK_DETECTION_WINDOW or idx >= len(self.angle_history) - self.PEAK_DETECTION_WINDOW:
+        if idx < self.PEAK_DETECTION_WINDOW or idx >= len(
+                self.angle_history) - self.PEAK_DETECTION_WINDOW:
             return False
 
         center_angle = self.angle_history[idx][1]
@@ -153,7 +155,8 @@ class ShoulderPressRules:
 
     def _is_local_minimum(self, idx: int) -> bool:
         """Sprawdza czy punkt w historii jest lokalnym minimum."""
-        if idx < self.PEAK_DETECTION_WINDOW or idx >= len(self.angle_history) - self.PEAK_DETECTION_WINDOW:
+        if idx < self.PEAK_DETECTION_WINDOW or idx >= len(
+                self.angle_history) - self.PEAK_DETECTION_WINDOW:
             return False
 
         center_angle = self.angle_history[idx][1]
@@ -273,7 +276,6 @@ class ShoulderPressRules:
             }
             db.insert_metrics(metrics, timestamp=datetime.now())
             db.close()
-
 
         return {
             'total_reps': len(self.repetitions),
