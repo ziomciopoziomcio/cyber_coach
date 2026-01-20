@@ -1,7 +1,11 @@
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
+
+from components import database
 
 
 class JointStatus(Enum):
@@ -136,7 +140,8 @@ class ShoulderPressRules:
 
     def _is_local_maximum(self, idx: int) -> bool:
         """Sprawdza czy punkt w historii jest lokalnym maksimum."""
-        if idx < self.PEAK_DETECTION_WINDOW or idx >= len(self.angle_history) - self.PEAK_DETECTION_WINDOW:
+        if idx < self.PEAK_DETECTION_WINDOW or idx >= len(
+                self.angle_history) - self.PEAK_DETECTION_WINDOW:
             return False
 
         center_angle = self.angle_history[idx][1]
@@ -150,7 +155,8 @@ class ShoulderPressRules:
 
     def _is_local_minimum(self, idx: int) -> bool:
         """Sprawdza czy punkt w historii jest lokalnym minimum."""
-        if idx < self.PEAK_DETECTION_WINDOW or idx >= len(self.angle_history) - self.PEAK_DETECTION_WINDOW:
+        if idx < self.PEAK_DETECTION_WINDOW or idx >= len(
+                self.angle_history) - self.PEAK_DETECTION_WINDOW:
             return False
 
         center_angle = self.angle_history[idx][1]
@@ -245,8 +251,11 @@ class ShoulderPressRules:
 
         return None
 
-    def get_repetition_summary(self) -> Dict:
-        """Zwraca podsumowanie powtórzeń."""
+    def get_repetition_summary(self, save_to_db: bool = False) -> Dict:
+        """Zwraca podsumowanie powtórzeń.
+        :param save_to_db: Czy zapisać podsumowanie do bazy danych.
+        :return: Słownik z podsumowaniem powtórzeń.
+        """
         if not self.repetitions:
             return {
                 'total_reps': 0,
@@ -256,6 +265,17 @@ class ShoulderPressRules:
             }
 
         complete = [r for r in self.repetitions if r.is_complete]
+
+        if save_to_db:
+            db = database.Database()
+            metrics = {
+                'total_reps': len(self.repetitions),
+                'complete_reps': len(complete),
+                'incomplete_reps': len(self.repetitions) - len(complete),
+                'avg_rom': float(np.mean([r.rom for r in self.repetitions]))
+            }
+            db.insert_metrics(metrics, timestamp=datetime.now())
+            db.close()
 
         return {
             'total_reps': len(self.repetitions),
