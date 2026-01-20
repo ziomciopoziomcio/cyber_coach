@@ -208,16 +208,19 @@ class ShoulderPressRules:
                     max_angle = max(frames_between)
                     rom = max_angle - min_angle
 
-                    # ← ZMIENIONE: uwzględnij błędy techniczne
-                    is_complete = (
-                            not self.has_error_in_current_rep and  # ← brak błędów
-                            self._check_rom_thresholds(min_angle, max_angle)
-                    )
+                    # Dostosowane: dla widoku 'side' pomijamy sprawdzanie ROM (liczy się tylko brak błędów)
+                    if self.view_type == 'side':
+                        is_complete = not self.has_error_in_current_rep
+                    else:
+                        is_complete = (
+                                not self.has_error_in_current_rep and
+                                self._check_rom_thresholds(min_angle, max_angle)
+                        )
 
                     errors = []
                     if self.has_error_in_current_rep:
                         errors.append("Niepoprawna technika podczas ruchu")
-                    if rom < self.MIN_ROM:
+                    if self.view_type != 'side' and rom < self.MIN_ROM:
                         errors.append(f"ROM za mały ({rom:.1f}° < {self.MIN_ROM}°)")
 
                     rep = Repetition(
