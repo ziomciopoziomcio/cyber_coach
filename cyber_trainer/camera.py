@@ -29,7 +29,7 @@ def wait_for_first_frame(client, timeout=WAIT_FIRST_FRAME, poll=POLL_INTERVAL):
 
 def main():
     use_camera = False
-    use_phone_streams = True
+    use_phone_streams = False
     enable_dual_view = True
     view_type = 'front'
     enable_feedback = True
@@ -254,8 +254,9 @@ def main():
                 if last_rep_messages[i] is not None:
                     if (time.time() - last_rep_times[i]) < message_duration:
                         status_msg, msg_color, rom = last_rep_messages[i]
-                        cv2.putText(frame, f"{status_msg} | ROM: {rom:.1f}°", (10, 105),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, msg_color, 2)
+                        if view_name == 'front':
+                            cv2.putText(frame, f"{status_msg} | ROM: {rom:.1f} deg", (10, 105),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, msg_color, 2)
 
                 cv2.imshow(window_name, frame)
 
@@ -291,7 +292,7 @@ def main():
             print(f"  Prawidłowe: {summary['complete_reps']}")
             print(f"  Nieprawidłowe: {summary['incomplete_reps']}")
             if summary['complete_reps'] > 0:
-                print(f"  Średni ROM: {summary['avg_rom']:.1f}°")
+                print(f"  Średni ROM: {summary['avg_rom']:.1f} deg")
 
         if enable_dual_view:
             print(f"\nZATWIERDZONE (oba widoki OK): {confirmed_reps}")
