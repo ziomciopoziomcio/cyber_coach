@@ -123,6 +123,11 @@ def main():
     # pomocnicze przechowywanie ostatnio wykrytych repów per widok (do synchronizacji dual view)
     recent_rep_by_view = {}
 
+
+    def _normalize_text(s: str) -> str:
+        # keep Polish letters and ascii, remove punctuation
+        return re.sub(r'[^\w\sąćęłńóśżźĄĆĘŁŃÓŚŻŹ]', ' ', s, flags=re.UNICODE).lower()
+
     print(f"Tryb: {'Oba widoki (synchronizacja)' if enable_dual_view else view_type}")
     print(f"Źródło: {'Kamery na żywo' if use_camera else 'Pliki wideo' if not use_phone_streams else 'Telefony (IP Webcam)'}")
     print("Naciśnij 'q' aby zakończyć\n")
