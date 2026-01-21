@@ -134,6 +134,37 @@ def main():
         # keep Polish letters and ascii, remove punctuation
         return re.sub(r'[^\w\sąćęłńóśżźĄĆĘŁŃÓŚŻŹ]', ' ', s, flags=re.UNICODE).lower()
 
+    def voice_callback(text: str, is_final: bool):
+        nonlocal detection_enabled, last_voice_msg, last_voice_time
+        if not text:
+            return
+        # we care mostly about final results to avoid rapid toggles
+        if not is_final:
+            return
+        t = _normalize_text(text)
+        tokens = set(t.split())
+        start_words = {'start', 'zacznij', 'rozpocznij', 'uruchom', 'startuj'}
+        stop_words = {'stop', 'zatrzymaj', 'zakończ', 'koniec', 'pauza'}
+        action = None
+        if tokens & start_words:
+            action = 'start'
+        elif tokens & stop_words:
+            action = 'stop'
+        if action is None:
+            return
+        with detection_lock:
+            detection_enabled = (action == 'start')
+        last_voice_msg = f"VOICE: {action.upper()}"
+        last_voice_time = time.time()
+        logger.info(f"Voice command detected: {action} -> detection_enabled={detection_enabled}")
+
+    # start background listener (Polish model by default)
+    try:
+        start_listening(voice_callback, language='pl')
+        logger.info("Voice listener started (language=pl)")
+    except Exception as e:
+        logger.warning(f"Voice listener could not be started: {e}")
+
     print(f"Tryb: {'Oba widoki (synchronizacja)' if enable_dual_view else view_type}")
     print(f"Źródło: {'Kamery na żywo' if use_camera else 'Pliki wideo' if not use_phone_streams else 'Telefony (IP Webcam)'}")
     print("Naciśnij 'q' aby zakończyć\n")
