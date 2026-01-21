@@ -123,6 +123,12 @@ def main():
     # pomocnicze przechowywanie ostatnio wykrytych repów per widok (do synchronizacji dual view)
     recent_rep_by_view = {}
 
+    # --- Voice command support: start/stop detection ---
+    detection_lock = threading.Lock()
+    detection_enabled = True
+    last_voice_msg = None
+    last_voice_time = 0.0
+    voice_msg_duration = 3.0
 
     def _normalize_text(s: str) -> str:
         # keep Polish letters and ascii, remove punctuation
