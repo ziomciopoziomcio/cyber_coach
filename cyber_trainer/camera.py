@@ -6,9 +6,14 @@ from pathlib import Path
 import sys
 import cv2
 import time
+import threading
+import re
 
 import logging
 logger = logging.getLogger(__name__)
+
+# new imports for speech-to-text
+from components.speech_to_text import start_listening, stop_listening
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -164,14 +169,26 @@ def main():
                     continue
 
                 # Detekcja pozy i landmarków
-                frame = detector.find_pose(frame, draw=True)
-                landmarks = detector.get_landmarks()
-                h, w = frame.shape[:2]
-                channels = frame.shape[2] if len(frame.shape) == 3 else 1
+                # handle voice-controlled pause/resume
+                with detection_lock:
+                    enabled = detection_enabled
 
-                angles = {}
-                if landmarks:
-                    angles = calc.get_all_angles(landmarks, (h, w, channels))
+                if not enabled:
+                    # show a small overlay indicating detection is paused
+                    h, w = frame.shape[:2]
+                    cv2.putText(frame, "DETECTION PAUSED (voice)", (10, 105),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 200), 2)
+                    landmarks = None
+                    angles = {}
+                else:
+                    frame = detector.find_pose(frame, draw=True)
+                    landmarks = detector.get_landmarks()
+                    h, w = frame.shape[:2]
+                    channels = frame.shape[2] if len(frame.shape) == 3 else 1
+
+                    angles = {}
+                    if landmarks:
+                        angles = calc.get_all_angles(landmarks, (h, w, channels))
 
                     # zapisujemy kąty do widoków
                     if view_name == 'front':
@@ -179,65 +196,70 @@ def main():
                     elif view_name == 'side':
                         angles_side = angles
 
-                    # feedback (błędy techniczne)
-                    has_errors = rule_set.has_angle_errors(angles) if enable_feedback else False
+                # show latest voice message briefly
+                if last_voice_msg and (time.time() - last_voice_time) < voice_msg_duration:
+                    cv2.putText(frame, last_voice_msg, (10, 140),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 200, 0), 2)
 
-                    # update detekcji powtórzeń
-                    completed_rep = rule_set.update_repetition_tracking(angles, frame_idx)
+                # feedback (błędy techniczne)
+                has_errors = rule_set.has_angle_errors(angles) if enable_feedback else False
 
-                    if completed_rep:
-                        # przygotuj komunikat dla użytkownika
-                        status_msg = "OK" if completed_rep.is_complete else "NIEPOPRAWNE"
-                        msg_color = color_ok if completed_rep.is_complete else color_error
-                        rom = completed_rep.rom
-                        last_rep_messages[i] = (status_msg, msg_color, rom)
-                        last_rep_times[i] = time.time()
+                # update detekcji powtórzeń
+                completed_rep = rule_set.update_repetition_tracking(angles, frame_idx)
 
-                        # synchronizacja przy dual view: sprawdź rep w drugim widoku
-                        if enable_dual_view:
-                            recent_rep_by_view[view_name] = (completed_rep, frame_idx, completed_rep.is_complete)
-                            # sprawdź czy jest rep w drugim widoku w bliskim czasie
-                            other_view = 'side' if view_name == 'front' else 'front'
-                            other = recent_rep_by_view.get(other_view)
-                            if other:
-                                other_rep, other_frame_idx, other_ok = other
-                                # prosta heurystyka synchronizacji: bliski czas wykrycia
-                                if abs(other_rep.start_frame - completed_rep.start_frame) < SYNC_FRAME_THRESHOLD:
-                                    # jeśli oba widoki OK -> zatwierdzamy
-                                    if completed_rep.is_complete and other_ok:
-                                        confirmed_reps += 1
-                                        # ustaw komunikaty dla obu okien
-                                        # znajdujemy indeksy okien i ustawiamy wiadomości
-                                        for j, vn in enumerate(view_names):
-                                            if vn in (view_name, other_view):
-                                                last_rep_messages[j] = ("ZATWIERDZONO", color_ok, rom)
-                                                last_rep_times[j] = time.time()
-                                # usuń starsze repy, żeby nie mnożyć potwierdzeń
-                                recent_rep_by_view.pop(other_view, None)
-                                recent_rep_by_view.pop(view_name, None)
+                if completed_rep:
+                    # przygotuj komunikat dla użytkownika
+                    status_msg = "OK" if completed_rep.is_complete else "NIEPOPRAWNE"
+                    msg_color = color_ok if completed_rep.is_complete else color_error
+                    rom = completed_rep.rom
+                    last_rep_messages[i] = (status_msg, msg_color, rom)
+                    last_rep_times[i] = time.time()
+
+                    # synchronizacja przy dual view: sprawdź rep w drugim widoku
+                    if enable_dual_view:
+                        recent_rep_by_view[view_name] = (completed_rep, frame_idx, completed_rep.is_complete)
+                        # sprawdź czy jest rep w drugim widoku w bliskim czasie
+                        other_view = 'side' if view_name == 'front' else 'front'
+                        other = recent_rep_by_view.get(other_view)
+                        if other:
+                            other_rep, other_frame_idx, other_ok = other
+                            # prosta heurystyka synchronizacji: bliski czas wykrycia
+                            if abs(other_rep.start_frame - completed_rep.start_frame) < SYNC_FRAME_THRESHOLD:
+                                # jeśli oba widoki OK -> zatwierdzamy
+                                if completed_rep.is_complete and other_ok:
+                                    confirmed_reps += 1
+                                    # ustaw komunikaty dla obu okien
+                                    # znajdujemy indeksy okien i ustawiamy wiadomości
+                                    for j, vn in enumerate(view_names):
+                                        if vn in (view_name, other_view):
+                                            last_rep_messages[j] = ("ZATWIERDZONE", color_ok, rom)
+                                            last_rep_times[j] = time.time()
+                            # usuń starsze repy, żeby nie mnożyć potwierdzeń
+                            recent_rep_by_view.pop(other_view, None)
+                            recent_rep_by_view.pop(view_name, None)
                         else:
                             # single view: jeśli is_complete to zwiększ licznik zatwierdzonych powtórzeń
                             if completed_rep.is_complete:
                                 confirmed_reps += 1
 
-                    # Rysowanie kątów obok landmarków
-                    for joint_name, angle in angles.items():
-                        if angle is None:
-                            continue
-                        if joint_name not in ANGLE_TO_IDX:
-                            continue
-                        idx_lm = ANGLE_TO_IDX[joint_name]
-                        try:
-                            lm_list = landmarks.landmark if hasattr(landmarks, "landmark") else landmarks
-                            lm = lm_list[idx_lm]
-                            x = int(lm.x * w)
-                            y = int(lm.y * h)
-                            color = color_ok if not rule_set.has_angle_errors({joint_name: angle}) else color_error
-                            cv2.putText(frame, f"{int(angle)}", (x + 15, y - 10),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-                            cv2.circle(frame, (x, y), 6, color, -1)
-                        except Exception:
-                            continue
+                # Rysowanie kątów obok landmarków
+                for joint_name, angle in angles.items():
+                    if angle is None:
+                        continue
+                    if joint_name not in ANGLE_TO_IDX:
+                        continue
+                    idx_lm = ANGLE_TO_IDX[joint_name]
+                    try:
+                        lm_list = landmarks.landmark if hasattr(landmarks, "landmark") else landmarks
+                        lm = lm_list[idx_lm]
+                        x = int(lm.x * w)
+                        y = int(lm.y * h)
+                        color = color_ok if not rule_set.has_angle_errors({joint_name: angle}) else color_error
+                        cv2.putText(frame, f"{int(angle)}", (x + 15, y - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                        cv2.circle(frame, (x, y), 6, color, -1)
+                    except Exception:
+                        continue
 
                 # HUD / FPS / liczba powtórzeń
                 c_time = time.time()
@@ -281,6 +303,12 @@ def main():
                 client.stop_stream()
             except Exception:
                 pass
+
+        # stop background voice listener
+        try:
+            stop_listening()
+        except Exception:
+            pass
 
         cv2.destroyAllWindows()
 
