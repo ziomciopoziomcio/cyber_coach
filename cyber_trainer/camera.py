@@ -246,7 +246,6 @@ def main():
                 # feedback (błędy techniczne)
                 has_errors = rule_set.has_angle_errors(angles) if enable_feedback else False
 
-                # update detekcji powtórzeń
                 completed_rep = rule_set.update_repetition_tracking(angles, frame_idx)
 
                 if completed_rep:
@@ -257,32 +256,32 @@ def main():
                     last_rep_messages[i] = (status_msg, msg_color, rom)
                     last_rep_times[i] = time.time()
 
-                    # synchronizacja przy dual view: sprawdź rep w drugim widoku
                     if enable_dual_view:
+                        # zapisz repę dla tego widoku (do ewentualnej synchronizacji)
                         recent_rep_by_view[view_name] = (completed_rep, frame_idx, completed_rep.is_complete)
-                        # sprawdź czy jest rep w drugim widoku w bliskim czasie
-                        other_view = 'side' if view_name == 'front' else 'front'
-                        other = recent_rep_by_view.get(other_view)
-                        if other:
-                            other_rep, other_frame_idx, other_ok = other
-                            # prosta heurystyka synchronizacji: bliski czas wykrycia
-                            if abs(other_rep.start_frame - completed_rep.start_frame) < SYNC_FRAME_THRESHOLD:
-                                # jeśli oba widoki OK -> zatwierdzamy
-                                if completed_rep.is_complete and other_ok:
-                                    confirmed_reps += 1
-                                    # ustaw komunikaty dla obu okien
-                                    # znajdujemy indeksy okien i ustawiamy wiadomości
-                                    for j, vn in enumerate(view_names):
-                                        if vn in (view_name, other_view):
-                                            last_rep_messages[j] = ("ZATWIERDZONE", color_ok, rom)
-                                            last_rep_times[j] = time.time()
-                            # usuń starsze repy, żeby nie mnożyć potwierdzeń
-                            recent_rep_by_view.pop(other_view, None)
-                            recent_rep_by_view.pop(view_name, None)
-                        else:
-                            # single view: jeśli is_complete to zwiększ licznik zatwierdzonych powtórzeń
+
+                        if view_name == 'front':
+                            # front decyduje o zatwierdzaniu powtórzeń
                             if completed_rep.is_complete:
                                 confirmed_reps += 1
+                        else:
+                            # view_name == 'side' -> zaakceptuj tylko gdy front miał niedawno kompletne repę
+                            front_entry = recent_rep_by_view.get('front')
+                            if front_entry and front_entry[2] and abs(
+                                    frame_idx - front_entry[1]) <= SYNC_FRAME_THRESHOLD:
+                                # side ma dopasowanie do frontu — pokaż OK/NIEPOPRAWNE zgodnie z side,
+                                # ale NIE inkrementujemy confirmed_reps (liczy front)
+                                # opcjonalnie doprecyzuj komunikat, żeby było widać synchronizację
+                                label = f"{status_msg} (SYNCed)"
+                                last_rep_messages[i] = (label, msg_color, rom)
+                                last_rep_times[i] = time.time()
+                            else:
+                                last_rep_messages[i] = (f"{status_msg} (SIDE - IGNOROWANE)", msg_color, rom)
+                                last_rep_times[i] = time.time()
+                    else:
+                        # tryb pojedynczego widoku: liczymy normalnie
+                        if completed_rep.is_complete:
+                            confirmed_reps += 1
 
                 # Rysowanie kątów obok landmarków
                 for joint_name, angle in angles.items():
