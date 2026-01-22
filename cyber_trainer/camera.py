@@ -261,17 +261,12 @@ def main():
                         recent_rep_by_view[view_name] = (completed_rep, frame_idx, completed_rep.is_complete)
 
                         if view_name == 'front':
-                            # front decyduje o zatwierdzaniu powtórzeń
                             if completed_rep.is_complete:
                                 confirmed_reps += 1
                         else:
-                            # view_name == 'side' -> zaakceptuj tylko gdy front miał niedawno kompletne repę
                             front_entry = recent_rep_by_view.get('front')
                             if front_entry and front_entry[2] and abs(
                                     frame_idx - front_entry[1]) <= SYNC_FRAME_THRESHOLD:
-                                # side ma dopasowanie do frontu — pokaż OK/NIEPOPRAWNE zgodnie z side,
-                                # ale NIE inkrementujemy confirmed_reps (liczy front)
-                                # opcjonalnie doprecyzuj komunikat, żeby było widać synchronizację
                                 label = f"{status_msg} (SYNCed)"
                                 last_rep_messages[i] = (label, msg_color, rom)
                                 last_rep_times[i] = time.time()
@@ -279,11 +274,9 @@ def main():
                                 last_rep_messages[i] = (f"{status_msg} (SIDE - IGNOROWANE)", msg_color, rom)
                                 last_rep_times[i] = time.time()
                     else:
-                        # tryb pojedynczego widoku: liczymy normalnie
                         if completed_rep.is_complete:
                             confirmed_reps += 1
 
-                # Rysowanie kątów obok landmarków
                 for joint_name, angle in angles.items():
                     if angle is None:
                         continue
