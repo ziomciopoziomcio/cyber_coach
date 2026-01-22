@@ -122,6 +122,9 @@ class ShoulderPressRules:
         """
         rom = max_angle - min_angle
 
+        if self.view_type == 'front' and rom < 50.0:
+            return False
+
         # Warunek 1: minimalny ROM
         if rom < self.MIN_ROM:
             return False
