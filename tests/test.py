@@ -102,8 +102,6 @@ def test_effectiveness_metric_matches_expected_percentage():
 
 
 def test_side_view_summary_behaviour():
-    # dla widoku side logika detekcji ukończenia powtórzenia jest inna,
-    # tutaj testujemy, że get_repetition_summary działa poprawnie również dla side
     rules = ShoulderPressRules(view_type="side")
     reps = [
         _make_rep(0, 10, 100.0, 130.0, True),
