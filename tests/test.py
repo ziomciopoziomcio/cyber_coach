@@ -1,4 +1,3 @@
-# python
 import pytest
 from cyber_trainer.preprocessing import JointAngleCalculator
 from analysis.exercise_rules import ShoulderPressRules, JointStatus, Repetition
