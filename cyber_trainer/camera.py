@@ -56,6 +56,7 @@ def main():
         rules_list = [rules_front, rules_side]
         window_names = ['Front View', 'Side View']
         view_names = ['front', 'side']
+        window_width = 800
 
         if use_phone_streams:
             phone_front_url = "http://192.168.1.237:8081"
@@ -73,7 +74,9 @@ def main():
             caps = [None, None]
         else:
             source_front = 0 if use_camera else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_przod.mp4')
-            source_side = 1 if use_camera else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_bok.mp4')
+            # TODO: zmienić na inny plik jeśli będzie, tutaj jest duplikat przodu - brak pliku boku
+            # source_side = 1 if use_camera else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_bok.mp4')
+            source_side = 1 if use_camera else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_przod_1.mp4')
             cap_front = cv2.VideoCapture(source_front)
             cap_side = cv2.VideoCapture(source_side)
             caps = [cap_front, cap_side]
@@ -336,7 +339,7 @@ def main():
                             cv2.putText(frame, f"{status_msg} | ROM: {rom:.1f} deg", (10, 105),
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, msg_color, 2)
 
-                cv2.imshow(window_name, frame)
+                cv2.imshow(window_name, ResizeWithAspectRatio(frame, width=window_width))
 
             frame_idx += 1
 
@@ -390,6 +393,21 @@ def main():
             print(f"\nZATWIERDZONE (oba widoki OK): {confirmed_reps}")
         else:
             print(f"\nZATWIERDZONE: {confirmed_reps}")
+
+
+def ResizeWithAspectRatio(image, width=None, height=None, inter=cv2.INTER_AREA):
+    (h, w) = image.shape[:2]
+
+    if width is None and height is None:
+        return image
+    if width is None:
+        r = height / float(h)
+        dim = (int(w * r), height)
+    else:
+        r = width / float(w)
+        dim = (width, int(h * r))
+
+    return cv2.resize(image, dim, interpolation=inter)
 
 
 if __name__ == '__main__':
