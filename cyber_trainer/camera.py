@@ -2,7 +2,6 @@ from posedetector import PoseDetector
 from cyber_trainer.preprocessing import JointAngleCalculator
 from components.phone_camera import IPWebcamClient
 from analysis.exercise_rules import ShoulderPressRules, JointStatus
-from analysis.reporting import Reporter
 from pathlib import Path
 import sys
 import cv2
@@ -56,6 +55,7 @@ def main():
         rules_list = [rules_front, rules_side]
         window_names = ['Front View', 'Side View']
         view_names = ['front', 'side']
+        window_width = 800
 
         if use_phone_streams:
             phone_front_url = "http://192.168.1.237:8081"
@@ -100,13 +100,6 @@ def main():
 
     detector = PoseDetector(complexity=2)
     calc = JointAngleCalculator(visibility_threshold=0.5)
-
-    # Reporter (integracja z analysis/reporting)
-    try:
-        reporter = Reporter()
-    except Exception:
-        reporter = None
-        logger.warning("Reporter could not be initialized; continuing without reporting.")
 
     p_time = 0.0
     frame_idx = 0
@@ -264,13 +257,6 @@ def main():
                     last_rep_messages[i] = (status_msg, msg_color, rom)
                     last_rep_times[i] = time.time()
 
-                    # reporter: zapisz repę
-                    if reporter:
-                        try:
-                            reporter.record_rep(completed_rep, view_name, frame_image=frame)
-                        except Exception:
-                            logger.debug("Reporter.record_rep failed; continuing.")
-
                     if enable_dual_view:
                         # zapisz repę dla tego widoku (do ewentualnej synchronizacji)
                         recent_rep_by_view[view_name] = (completed_rep, frame_idx, completed_rep.is_complete)
@@ -315,14 +301,6 @@ def main():
                 fps = 1 / (c_time - p_time) if (c_time - p_time) > 0 else 0
                 p_time = c_time
 
-                # reporter: zapisz dane klatki (jeśli reporter jest zainicjalizowany)
-                if reporter:
-                    try:
-                        reporter.record_frame(frame_idx, fps, angles, enabled, view_name, frame=frame)
-                    except Exception:
-                        logger.debug("Reporter.record_frame failed; continuing.")
-
-                # czarny pasek i tekst
                 cv2.rectangle(frame, (0, 0), (420, 120), (0, 0, 0), -1)
                 cv2.putText(frame, f"FPS: {int(fps)}", (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
@@ -336,7 +314,7 @@ def main():
                             cv2.putText(frame, f"{status_msg} | ROM: {rom:.1f} deg", (10, 105),
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, msg_color, 2)
 
-                cv2.imshow(window_name, frame)
+                cv2.imshow(window_name, ResizeWithAspectRatio(frame, width=window_width))
 
             frame_idx += 1
 
@@ -368,14 +346,6 @@ def main():
 
         cv2.destroyAllWindows()
 
-        # wygeneruj raport jeśli reporter istnieje
-        if reporter:
-            try:
-                outdir = reporter.generate_report()
-                print("Report saved to", outdir)
-            except Exception:
-                logger.warning("Reporter.generate_report failed")
-
         print("\n=== PODSUMOWANIE ===")
         for i, (rule_set, view_name) in enumerate(zip(rules_list, view_names)):
             summary = rule_set.get_repetition_summary()
@@ -390,6 +360,21 @@ def main():
             print(f"\nZATWIERDZONE (oba widoki OK): {confirmed_reps}")
         else:
             print(f"\nZATWIERDZONE: {confirmed_reps}")
+
+
+def ResizeWithAspectRatio(image, width=None, height=None, inter=cv2.INTER_AREA):
+    (h, w) = image.shape[:2]
+
+    if width is None and height is None:
+        return image
+    if width is None:
+        r = height / float(h)
+        dim = (int(w * r), height)
+    else:
+        r = width / float(w)
+        dim = (width, int(h * r))
+
+    return cv2.resize(image, dim, interpolation=inter)
 
 
 if __name__ == '__main__':
