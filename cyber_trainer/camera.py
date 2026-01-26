@@ -2,7 +2,6 @@ from posedetector import PoseDetector
 from cyber_trainer.preprocessing import JointAngleCalculator
 from components.phone_camera import IPWebcamClient
 from analysis.exercise_rules import ShoulderPressRules, JointStatus
-from analysis.reporting import Reporter
 from pathlib import Path
 import sys
 import cv2
@@ -74,9 +73,7 @@ def main():
             caps = [None, None]
         else:
             source_front = 0 if use_camera else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_przod.mp4')
-            # TODO: zmienić na inny plik jeśli będzie, tutaj jest duplikat przodu - brak pliku boku
-            # source_side = 1 if use_camera else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_bok.mp4')
-            source_side = 1 if use_camera else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_przod_1.mp4')
+            source_side = 1 if use_camera else str(project_root / 'data' / 'videos' / 'try2' / 'nina_1_bok.mp4')
             cap_front = cv2.VideoCapture(source_front)
             cap_side = cv2.VideoCapture(source_side)
             caps = [cap_front, cap_side]
@@ -103,13 +100,6 @@ def main():
 
     detector = PoseDetector(complexity=2)
     calc = JointAngleCalculator(visibility_threshold=0.5)
-
-    # Reporter (integracja z analysis/reporting)
-    try:
-        reporter = Reporter()
-    except Exception:
-        reporter = None
-        logger.warning("Reporter could not be initialized; continuing without reporting.")
 
     p_time = 0.0
     frame_idx = 0
@@ -267,13 +257,6 @@ def main():
                     last_rep_messages[i] = (status_msg, msg_color, rom)
                     last_rep_times[i] = time.time()
 
-                    # reporter: zapisz repę
-                    if reporter:
-                        try:
-                            reporter.record_rep(completed_rep, view_name, frame_image=frame)
-                        except Exception:
-                            logger.debug("Reporter.record_rep failed; continuing.")
-
                     if enable_dual_view:
                         # zapisz repę dla tego widoku (do ewentualnej synchronizacji)
                         recent_rep_by_view[view_name] = (completed_rep, frame_idx, completed_rep.is_complete)
@@ -318,14 +301,6 @@ def main():
                 fps = 1 / (c_time - p_time) if (c_time - p_time) > 0 else 0
                 p_time = c_time
 
-                # reporter: zapisz dane klatki (jeśli reporter jest zainicjalizowany)
-                if reporter:
-                    try:
-                        reporter.record_frame(frame_idx, fps, angles, enabled, view_name, frame=frame)
-                    except Exception:
-                        logger.debug("Reporter.record_frame failed; continuing.")
-
-                # czarny pasek i tekst
                 cv2.rectangle(frame, (0, 0), (420, 120), (0, 0, 0), -1)
                 cv2.putText(frame, f"FPS: {int(fps)}", (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
@@ -370,14 +345,6 @@ def main():
             pass
 
         cv2.destroyAllWindows()
-
-        # wygeneruj raport jeśli reporter istnieje
-        if reporter:
-            try:
-                outdir = reporter.generate_report()
-                print("Report saved to", outdir)
-            except Exception:
-                logger.warning("Reporter.generate_report failed")
 
         print("\n=== PODSUMOWANIE ===")
         for i, (rule_set, view_name) in enumerate(zip(rules_list, view_names)):
